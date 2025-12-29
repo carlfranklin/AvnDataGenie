@@ -5,7 +5,7 @@ namespace QueryGenerator;
 
 public class Generator
 {
-	async Task<DatabaseSchema> GenerateDatabaseSchemaAsync(string connectionString)
+	public async Task<DatabaseSchema> GenerateDatabaseSchemaAsync(string connectionString)
 	{
 		var schema = new DatabaseSchema();
 

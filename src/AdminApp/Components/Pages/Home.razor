@@ -1,0 +1,99 @@
+﻿@page "/"
+@using QueryGenerator
+@using QueryGenerator.Models
+@using System.Text.Json
+@inject Generator generator
+@rendermode InteractiveServer
+
+<PageTitle>Admin App</PageTitle>
+
+<div class="container mt-5">
+	<h1>Database Schema Generator</h1>
+	
+	<div class="mb-3">
+		<label for="connectionString" class="form-label">SQL Connection String:</label>
+		<textarea 
+			id="connectionString" 
+			class="form-control" 
+			rows="3" 
+			@bind="connectionString"
+			placeholder="Server=myServer;Database=myDB;User Id=myUser;Password=myPass;"></textarea>
+	</div>
+
+	<button class="btn btn-primary" @onclick="GenerateSchema" disabled="@isLoading">
+		@if (isLoading)
+		{
+			<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+			<span>Generating...</span>
+		}
+		else
+		{
+			<span>Generate Schema</span>
+		}
+	</button>
+
+	@if (!string.IsNullOrEmpty(errorMessage))
+	{
+		<div class="alert alert-danger mt-3" role="alert">
+			<strong>Error:</strong> @errorMessage
+		</div>
+	}
+
+	@if (!string.IsNullOrEmpty(schemaJson))
+	{
+		<div class="mt-4">
+			<label for="schemaOutput" class="form-label">Database Schema (JSON):</label>
+			<textarea 
+				id="schemaOutput" 
+				class="form-control" 
+				rows="20" 
+				readonly="readonly"
+				style="font-family: monospace;">@schemaJson</textarea>
+		</div>
+	}
+</div>
+
+@code {
+	private string connectionString = string.Empty;
+	private string schemaJson = string.Empty;
+	private string errorMessage = string.Empty;
+	private bool isLoading = false;
+
+	private async Task GenerateSchema()
+	{
+		errorMessage = string.Empty;
+		schemaJson = string.Empty;
+		
+		if (string.IsNullOrWhiteSpace(connectionString))
+		{
+			errorMessage = "Please enter a connection string.";
+			return;
+		}
+
+		isLoading = true;
+		StateHasChanged();
+
+		try
+		{
+			var schema = await generator.GenerateDatabaseSchemaAsync(connectionString);
+			
+			var options = new JsonSerializerOptions
+			{
+				WriteIndented = true,
+				PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+			};
+			
+			schemaJson = JsonSerializer.Serialize(schema, options);
+		}
+		catch (Exception ex)
+		{
+			errorMessage = ex.Message;
+		}
+		finally
+		{
+			isLoading = false;
+			StateHasChanged();
+		}
+	}
+}
+
