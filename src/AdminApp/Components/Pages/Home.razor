@@ -77,6 +77,8 @@
             try
             {
                 appState.SchemaJson = await File.ReadAllTextAsync(appState.SaveFilePath);
+                var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+                appState.DatabaseSchema = JsonSerializer.Deserialize<DatabaseSchema>(appState.SchemaJson, options);
                 errorMessage = string.Empty;
             }
             catch (Exception ex)
@@ -150,6 +152,7 @@
             };
 
             appState.SchemaJson = JsonSerializer.Serialize(schema, options);
+            appState.DatabaseSchema = schema;
 
             // save it
             try

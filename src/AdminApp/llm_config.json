@@ -1,0 +1,120 @@
+{
+  "tableConfigurations": [
+    {
+      "schemaName": "dbo",
+      "tableName": "Album",
+      "friendlyName": null,
+      "description": null,
+      "aliases": "record, recording",
+      "columnConfigurations": [
+        {
+          "columnName": "AlbumId",
+          "friendlyName": null,
+          "description": null,
+          "aliases": null,
+          "isPii": false,
+          "isRestricted": false
+        },
+        {
+          "columnName": "Title",
+          "friendlyName": null,
+          "description": null,
+          "aliases": "name",
+          "isPii": false,
+          "isRestricted": false
+        },
+        {
+          "columnName": "ArtistId",
+          "friendlyName": null,
+          "description": null,
+          "aliases": null,
+          "isPii": false,
+          "isRestricted": false
+        }
+      ]
+    },
+    {
+      "schemaName": "dbo",
+      "tableName": "Artist",
+      "friendlyName": null,
+      "description": null,
+      "aliases": null,
+      "columnConfigurations": []
+    },
+    {
+      "schemaName": "dbo",
+      "tableName": "Customer",
+      "friendlyName": null,
+      "description": null,
+      "aliases": null,
+      "columnConfigurations": []
+    },
+    {
+      "schemaName": "dbo",
+      "tableName": "Employee",
+      "friendlyName": null,
+      "description": null,
+      "aliases": null,
+      "columnConfigurations": []
+    },
+    {
+      "schemaName": "dbo",
+      "tableName": "Genre",
+      "friendlyName": null,
+      "description": null,
+      "aliases": null,
+      "columnConfigurations": []
+    },
+    {
+      "schemaName": "dbo",
+      "tableName": "Invoice",
+      "friendlyName": null,
+      "description": null,
+      "aliases": null,
+      "columnConfigurations": []
+    },
+    {
+      "schemaName": "dbo",
+      "tableName": "InvoiceLine",
+      "friendlyName": null,
+      "description": null,
+      "aliases": null,
+      "columnConfigurations": []
+    },
+    {
+      "schemaName": "dbo",
+      "tableName": "MediaType",
+      "friendlyName": null,
+      "description": null,
+      "aliases": null,
+      "columnConfigurations": []
+    },
+    {
+      "schemaName": "dbo",
+      "tableName": "Playlist",
+      "friendlyName": null,
+      "description": null,
+      "aliases": null,
+      "columnConfigurations": []
+    },
+    {
+      "schemaName": "dbo",
+      "tableName": "PlaylistTrack",
+      "friendlyName": null,
+      "description": null,
+      "aliases": null,
+      "columnConfigurations": []
+    },
+    {
+      "schemaName": "dbo",
+      "tableName": "Track",
+      "friendlyName": null,
+      "description": null,
+      "aliases": null,
+      "columnConfigurations": []
+    }
+  ],
+  "joinHints": [],
+  "requiredFilters": [],
+  "businessTerms": []
+}

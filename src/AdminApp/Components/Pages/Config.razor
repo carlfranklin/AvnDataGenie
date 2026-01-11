@@ -1,19 +1,532 @@
 ﻿@page "/config"
+@using QueryGenerator.Models
+@using System.Text.Json
 @inject AppState appState
+@inject NavigationManager navigationManager
 
-@if (string.IsNullOrEmpty(appState.SchemaJson))
+@rendermode InteractiveServer
+
+@if (appState.DatabaseSchema == null)
 {
     <p>No schema loaded. Please go to the <a href="/">Home</a> page to generate or load a database schema.</p>
 }
 else
 {
-    <h1>Configuration</h1>
+    <div class="container-fluid mt-3">
+        <h1>LLM Configuration</h1>
+        <p class="text-muted">Configure how the LLM interacts with your database</p>
+
+        <ul class="nav nav-tabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link @(activeTab == "tables" ? "active" : "")" @onclick="@(() => activeTab = "tables")">
+                    Tables & Columns
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link @(activeTab == "joins" ? "active" : "")" @onclick="@(() => activeTab = "joins")">
+                    Join Hints
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link @(activeTab == "filters" ? "active" : "")" @onclick="@(() => activeTab = "filters")">
+                    Required Filters
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link @(activeTab == "terms" ? "active" : "")" @onclick="@(() => activeTab = "terms")">
+                    Business Terms
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content mt-3">
+            @if (activeTab == "tables")
+            {
+                <div class="tab-pane fade show active">
+                    <h3>Tables & Columns Configuration</h3>
+                    <p class="text-muted">Rename tables/columns, add descriptions, and mark PII/restricted fields</p>
+                    
+                    @foreach (var table in appState.DatabaseSchema.Tables)
+                    {
+                        var tableKey = $"{table.SchemaName}.{table.TableName}";
+                        var tableConfig = GetOrCreateTableConfig(table.SchemaName, table.TableName);
+                        var isExpanded = expandedTables.Contains(tableKey);
+
+                        <div class="card mb-3">
+                            <div class="card-header" style="cursor: pointer;" @onclick="() => ToggleTable(tableKey)">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <strong>@table.SchemaName.@table.TableName</strong>
+                                        @if (!string.IsNullOrWhiteSpace(tableConfig.FriendlyName))
+                                        {
+                                            <span class="badge bg-info ms-2">@tableConfig.FriendlyName</span>
+                                        }
+                                    </div>
+                                    <span>@(isExpanded ? "▼" : "▶")</span>
+                                </div>
+                            </div>
+                            @if (isExpanded)
+                            {
+                                <div class="card-body">
+                                    <div class="row mb-3">
+                                        <div class="col-md-4">
+                                            <label class="form-label">Friendly Name</label>
+                                            <input type="text" class="form-control" @bind="tableConfig.FriendlyName" placeholder="e.g., Customers" />
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label">Description</label>
+                                            <input type="text" class="form-control" @bind="tableConfig.Description" placeholder="Describe this table's purpose" />
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label">Aliases (comma-separated)</label>
+                                            <input type="text" class="form-control" @bind="tableConfig.Aliases" placeholder="e.g., Cust, Customer, Clients" />
+                                            <small class="text-muted">Separate aliases with commas</small>
+                                        </div>
+                                    </div>
+
+                                    <h5>Columns</h5>
+                                    <table class="table table-sm">
+                                        <thead>
+                                            <tr>
+                                                <th>Column Name</th>
+                                                <th>Type</th>
+                                                <th>Friendly Name</th>
+                                                <th>Description</th>
+                                                <th>Aliases</th>
+                                                <th>PII</th>
+                                                <th>Restricted</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var column in table.Columns.OrderBy(c => c.OrdinalPosition))
+                                            {
+                                                var colConfig = GetOrCreateColumnConfig(tableConfig, column.ColumnName);
+                                                <tr>
+                                                    <td><code>@column.ColumnName</code></td>
+                                                    <td><small>@column.DataType</small></td>
+                                                    <td>
+                                                        <input type="text" class="form-control form-control-sm" @bind="colConfig.FriendlyName" placeholder="Friendly name" />
+                                                    </td>
+                                                    <td>
+                                                        <input type="text" class="form-control form-control-sm" @bind="colConfig.Description" placeholder="Description" />
+                                                    </td>
+                                                    <td>
+                                                        <input type="text" class="form-control form-control-sm" @bind="colConfig.Aliases" placeholder="Alias1, Alias2" title="Separate aliases with commas" />
+                                                    </td>
+                                                    <td>
+                                                        <input type="checkbox" class="form-check-input" @bind="colConfig.IsPii" />
+                                                    </td>
+                                                    <td>
+                                                        <input type="checkbox" class="form-check-input" @bind="colConfig.IsRestricted" />
+                                                    </td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+            else if (activeTab == "joins")
+            {
+                <div class="tab-pane fade show active">
+                    <h3>Join Hints</h3>
+                    <p class="text-muted">Define common joins to help the LLM understand table relationships</p>
+                    
+                    <button class="btn btn-primary mb-3" @onclick="AddJoinHint">
+                        <span>+ Add Join Hint</span>
+                    </button>
+
+                    @if (appState.LlmConfiguration.JoinHints.Any())
+                    {
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>From Table</th>
+                                    <th>From Column</th>
+                                    <th>To Table</th>
+                                    <th>To Column</th>
+                                    <th>Description</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var (hint, index) in appState.LlmConfiguration.JoinHints.Select((h, i) => (h, i)))
+                                {
+                                    <tr>
+                                        <td>
+                                            <select class="form-select form-select-sm" @bind="hint.FromTable">
+                                                <option value="">Select table...</option>
+                                                @foreach (var table in appState.DatabaseSchema!.Tables)
+                                                {
+                                                    <option value="@($"{table.SchemaName}.{table.TableName}")">@table.SchemaName.@table.TableName</option>
+                                                }
+                                            </select>
+                                        </td>
+                                        <td>
+                                            <input type="text" class="form-control form-control-sm" @bind="hint.FromColumn" placeholder="Column" />
+                                        </td>
+                                        <td>
+                                            <select class="form-select form-select-sm" @bind="hint.ToTable">
+                                                <option value="">Select table...</option>
+                                                @foreach (var table in appState.DatabaseSchema!.Tables)
+                                                {
+                                                    <option value="@($"{table.SchemaName}.{table.TableName}")">@table.SchemaName.@table.TableName</option>
+                                                }
+                                            </select>
+                                        </td>
+                                        <td>
+                                            <input type="text" class="form-control form-control-sm" @bind="hint.ToColumn" placeholder="Column" />
+                                        </td>
+                                        <td>
+                                            <input type="text" class="form-control form-control-sm" @bind="hint.Hint" placeholder="Optional hint" />
+                                        </td>
+                                        <td>
+                                            <button class="btn btn-sm btn-danger" @onclick="() => RemoveJoinHint(index)">×</button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                    else
+                    {
+                        <p class="text-muted">No join hints defined yet.</p>
+                    }
+                </div>
+            }
+            else if (activeTab == "filters")
+            {
+                <div class="tab-pane fade show active">
+                    <h3>Required Filters</h3>
+                    <p class="text-muted">Define filters that must always be applied (tenant isolation, soft delete, etc.)</p>
+                    
+                    <button class="btn btn-primary mb-3" @onclick="AddRequiredFilter">
+                        <span>+ Add Required Filter</span>
+                    </button>
+
+                    @if (appState.LlmConfiguration.RequiredFilters.Any())
+                    {
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Table</th>
+                                    <th>Column</th>
+                                    <th>Filter Type</th>
+                                    <th>Default Value</th>
+                                    <th>Description</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var (filter, index) in appState.LlmConfiguration.RequiredFilters.Select((f, i) => (f, i)))
+                                {
+                                    <tr>
+                                        <td>
+                                            <select class="form-select form-select-sm" @bind="filter.TableName">
+                                                <option value="">Select table...</option>
+                                                @foreach (var table in appState.DatabaseSchema!.Tables)
+                                                {
+                                                    <option value="@($"{table.SchemaName}.{table.TableName}")">@table.SchemaName.@table.TableName</option>
+                                                }
+                                            </select>
+                                        </td>
+                                        <td>
+                                            <input type="text" class="form-control form-control-sm" @bind="filter.ColumnName" placeholder="Column name" />
+                                        </td>
+                                        <td>
+                                            <select class="form-select form-select-sm" @bind="filter.FilterType">
+                                                <option value="Tenant">Tenant</option>
+                                                <option value="SoftDelete">Soft Delete</option>
+                                                <option value="Custom">Custom</option>
+                                            </select>
+                                        </td>
+                                        <td>
+                                            <input type="text" class="form-control form-control-sm" @bind="filter.DefaultValue" placeholder="e.g., IS NULL, = 0" />
+                                        </td>
+                                        <td>
+                                            <input type="text" class="form-control form-control-sm" @bind="filter.Description" placeholder="Optional description" />
+                                        </td>
+                                        <td>
+                                            <button class="btn btn-sm btn-danger" @onclick="() => RemoveRequiredFilter(index)">×</button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                    else
+                    {
+                        <p class="text-muted">No required filters defined yet.</p>
+                    }
+                </div>
+            }
+            else if (activeTab == "terms")
+            {
+                <div class="tab-pane fade show active">
+                    <h3>Business Terms</h3>
+                    <p class="text-muted">Define business terminology and concepts (e.g., "Submitted grants", "Active customers")</p>
+                    
+                    <button class="btn btn-primary mb-3" @onclick="AddBusinessTerm">
+                        <span>+ Add Business Term</span>
+                    </button>
+
+                    @if (appState.LlmConfiguration.BusinessTerms.Any())
+                    {
+                        @foreach (var (term, index) in appState.LlmConfiguration.BusinessTerms.Select((t, i) => (t, i)))
+                        {
+                            <div class="card mb-3">
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-3">
+                                            <label class="form-label">Term Name</label>
+                                            <input type="text" class="form-control" @bind="term.Name" placeholder="e.g., Submitted Grants" />
+                                        </div>
+                                        <div class="col-md-5">
+                                            <label class="form-label">Definition</label>
+                                            <input type="text" class="form-control" @bind="term.Definition" placeholder="Describe what this term means" />
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label">Example (Optional)</label>
+                                            <input type="text" class="form-control" @bind="term.Example" placeholder="e.g., WHERE Status = 'Submitted'" />
+                                        </div>
+                                        <div class="col-md-1 d-flex align-items-end">
+                                            <button class="btn btn-danger" @onclick="() => RemoveBusinessTerm(index)">×</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <p class="text-muted">No business terms defined yet.</p>
+                    }
+                </div>
+            }
+        </div>
+
+        <div class="mt-4 d-flex gap-2">
+            <button class="btn btn-success" @onclick="SaveConfiguration">Save Configuration</button>
+            <button class="btn btn-secondary" @onclick="LoadConfiguration">Load Configuration</button>
+            <button class="btn btn-outline-secondary" @onclick="ExportConfiguration">Export JSON</button>
+            <button class="btn btn-outline-primary" @onclick="@(() => navigationManager.NavigateTo("/"))">Back to Home</button>
+        </div>
+
+        @if (!string.IsNullOrEmpty(statusMessage))
+        {
+            <div class="alert alert-info mt-3">@statusMessage</div>
+        }
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger mt-3">@errorMessage</div>
+        }
+    </div>
 }
 
 @code {
+    private string activeTab = "tables";
+    private HashSet<string> expandedTables = new();
+    private string statusMessage = string.Empty;
+    private string errorMessage = string.Empty;
 
     protected override void OnInitialized()
     {
+        appState.ConfigSaveFilePath = Path.Combine(Environment.CurrentDirectory, "llm_config.json");
+        InitializeConfiguration();
+    }
+
+    private void InitializeConfiguration()
+    {
+        if (appState.DatabaseSchema != null)
+        {
+            if (!appState.LlmConfiguration.TableConfigurations.Any())
+            {
+                foreach (var table in appState.DatabaseSchema.Tables)
+                {
+                    GetOrCreateTableConfig(table.SchemaName, table.TableName);
+                }
+            }
+
+            if (!appState.LlmConfiguration.JoinHints.Any())
+            {
+                GenerateJoinHintsFromForeignKeys();
+            }
+        }
+    }
+
+    private void GenerateJoinHintsFromForeignKeys()
+    {
+        if (appState.DatabaseSchema == null) return;
+
+        foreach (var table in appState.DatabaseSchema.Tables)
+        {
+            foreach (var fk in table.ForeignKeys)
+            {
+                for (int i = 0; i < fk.Columns.Count && i < fk.ReferencedColumns.Count; i++)
+                {
+                    appState.LlmConfiguration.JoinHints.Add(new JoinHint
+                    {
+                        FromTable = $"{table.SchemaName}.{table.TableName}",
+                        FromColumn = fk.Columns[i],
+                        ToTable = $"{fk.ReferencedSchema}.{fk.ReferencedTable}",
+                        ToColumn = fk.ReferencedColumns[i],
+                        Hint = string.Empty
+                    });
+                }
+            }
+        }
+    }
+
+    private TableConfiguration GetOrCreateTableConfig(string schemaName, string tableName)
+    {
+        var existing = appState.LlmConfiguration.TableConfigurations
+            .FirstOrDefault(t => t.SchemaName == schemaName && t.TableName == tableName);
         
+        if (existing == null)
+        {
+            existing = new TableConfiguration 
+            { 
+                SchemaName = schemaName, 
+                TableName = tableName 
+            };
+            appState.LlmConfiguration.TableConfigurations.Add(existing);
+        }
+        
+        return existing;
+    }
+
+    private ColumnConfiguration GetOrCreateColumnConfig(TableConfiguration tableConfig, string columnName)
+    {
+        var existing = tableConfig.ColumnConfigurations
+            .FirstOrDefault(c => c.ColumnName == columnName);
+        
+        if (existing == null)
+        {
+            existing = new ColumnConfiguration { ColumnName = columnName };
+            tableConfig.ColumnConfigurations.Add(existing);
+        }
+        
+        return existing;
+    }
+
+    private void ToggleTable(string tableKey)
+    {
+        if (expandedTables.Contains(tableKey))
+            expandedTables.Remove(tableKey);
+        else
+            expandedTables.Add(tableKey);
+    }
+
+    private void AddJoinHint()
+    {
+        appState.LlmConfiguration.JoinHints.Add(new JoinHint());
+    }
+
+    private void RemoveJoinHint(int index)
+    {
+        appState.LlmConfiguration.JoinHints.RemoveAt(index);
+    }
+
+    private void AddRequiredFilter()
+    {
+        appState.LlmConfiguration.RequiredFilters.Add(new RequiredFilter());
+    }
+
+    private void RemoveRequiredFilter(int index)
+    {
+        appState.LlmConfiguration.RequiredFilters.RemoveAt(index);
+    }
+
+    private void AddBusinessTerm()
+    {
+        appState.LlmConfiguration.BusinessTerms.Add(new BusinessTerm());
+    }
+
+    private void RemoveBusinessTerm(int index)
+    {
+        appState.LlmConfiguration.BusinessTerms.RemoveAt(index);
+    }
+
+    private async Task SaveConfiguration()
+    {
+        try
+        {
+            var options = new JsonSerializerOptions
+            {
+                WriteIndented = true,
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            };
+
+            var json = JsonSerializer.Serialize(appState.LlmConfiguration, options);
+            await File.WriteAllTextAsync(appState.ConfigSaveFilePath, json);
+            
+            statusMessage = $"Configuration saved to {appState.ConfigSaveFilePath}";
+            errorMessage = string.Empty;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error saving configuration: {ex.Message}";
+            statusMessage = string.Empty;
+        }
+    }
+
+    private async Task LoadConfiguration()
+    {
+        try
+        {
+            if (File.Exists(appState.ConfigSaveFilePath))
+            {
+                var json = await File.ReadAllTextAsync(appState.ConfigSaveFilePath);
+                var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+                var config = JsonSerializer.Deserialize<LlmConfiguration>(json, options);
+                
+                if (config != null)
+                {
+                    appState.LlmConfiguration = config;
+                    statusMessage = "Configuration loaded successfully";
+                    errorMessage = string.Empty;
+                }
+            }
+            else
+            {
+                errorMessage = "Configuration file does not exist";
+                statusMessage = string.Empty;
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading configuration: {ex.Message}";
+            statusMessage = string.Empty;
+        }
+    }
+
+    private async Task ExportConfiguration()
+    {
+        try
+        {
+            var options = new JsonSerializerOptions
+            {
+                WriteIndented = true,
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            };
+
+            var json = JsonSerializer.Serialize(appState.LlmConfiguration, options);
+            
+            // For a web app, we'd typically trigger a download
+            // For now, just copy to a timestamped file
+            var exportPath = Path.Combine(Environment.CurrentDirectory, $"llm_config_export_{DateTime.Now:yyyyMMdd_HHmmss}.json");
+            await File.WriteAllTextAsync(exportPath, json);
+            
+            statusMessage = $"Configuration exported to {exportPath}";
+            errorMessage = string.Empty;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error exporting configuration: {ex.Message}";
+            statusMessage = string.Empty;
+        }
     }
 }
