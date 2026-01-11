@@ -1,0 +1,19 @@
+﻿@page "/config"
+@inject AppState appState
+
+@if (string.IsNullOrEmpty(appState.SchemaJson))
+{
+    <p>No schema loaded. Please go to the <a href="/">Home</a> page to generate or load a database schema.</p>
+}
+else
+{
+    <h1>Configuration</h1>
+}
+
+@code {
+
+    protected override void OnInitialized()
+    {
+        
+    }
+}

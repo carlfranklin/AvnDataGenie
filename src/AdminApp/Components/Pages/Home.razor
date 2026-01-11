@@ -3,152 +3,182 @@
 @using QueryGenerator.Models
 @using System.Text.Json
 @inject Generator generator
+@inject AppState appState
+@inject NavigationManager navigationManager
+
 @rendermode InteractiveServer
 
 <PageTitle>Admin App</PageTitle>
 
 <div class="container mt-5">
-	<h1>Database Schema Generator</h1>
-	
-	<div class="mb-3">
-		<label for="connectionString" class="form-label">SQL Connection String:</label>
-		<textarea 
-			id="connectionString" 
-			class="form-control" 
-			rows="3" 
-			@bind="connectionString"></textarea>
-	</div>
+    <h1>Database Schema Generator</h1>
 
-	<button class="btn btn-primary" @onclick="GenerateSchema" disabled="@isLoading">
-		@if (isLoading)
-		{
-			<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-			<span>Generating...</span>
-		}
-		else
-		{
-			<span>Generate Schema</span>
-		}
-	</button>
+    <div class="mb-3">
+        <label for="connectionString" class="form-label">SQL Connection String:</label>
+        <textarea id="connectionString"
+                  class="form-control"
+                  rows="3"
+                  @bind="connectionString"></textarea>
+    </div>
 
-	@if (!string.IsNullOrEmpty(errorMessage))
-	{
-		<div class="alert alert-danger mt-3" role="alert">
-			<strong>Error:</strong> @errorMessage
-		</div>
-	}
+    <button class="btn btn-primary" @onclick="GenerateSchema" disabled="@isLoading">
+        @if (isLoading)
+        {
+            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+            <span>Generating...</span>
+        }
+        else
+        {
+            <span>Generate Schema</span>
+        }
+    </button>
 
-	@if (!string.IsNullOrEmpty(schemaJson))
-	{
-		<div class="mt-4">
-			<label for="schemaOutput" class="form-label">Database Schema (JSON):</label>
-			<textarea 
-				id="schemaOutput" 
-				class="form-control" 
-				rows="20" 
-				readonly="readonly"
-				style="font-family: monospace;">@schemaJson</textarea>
-			
-			<div class="mt-3">
-				<div class="row">
-					<div class="col-md-8">
-						<input type="text" class="form-control" @bind="saveFilePath" placeholder="Enter file path (e.g., C:\output\schema.json)" />
-					</div>
-					<div class="col-md-4">
-						<button class="btn btn-success" @onclick="SaveJson">Save JSON</button>
-					</div>
-				</div>
-				@if (!string.IsNullOrEmpty(saveMessage))
-				{
-					<div class="alert alert-success mt-2" role="alert">
-						@saveMessage
-					</div>
-				}
-				@if (!string.IsNullOrEmpty(saveError))
-				{
-					<div class="alert alert-danger mt-2" role="alert">
-						<strong>Error:</strong> @saveError
-					</div>
-				}
-			</div>
-		</div>
-	}
+    <button class="btn btn-primary" @onclick="LoadSchema" disabled="@LoadSchemaButtonDisabled">
+        <span>Load Schema</span>
+    </button>
+
+    @if (!string.IsNullOrEmpty(appState.SchemaJson))
+    {
+        <button class="btn btn-primary" style="margin-left:4px;" @onclick="DeleteSchema">Delete Schema</button>
+        <button class="btn btn-primary" @onclick="GoToConfigurePage">Configure Data Genie</button>
+    }
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger mt-3" role="alert">
+            <strong>Error:</strong> @errorMessage
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(appState.SchemaJson))
+    {
+        <div class="mt-4">
+            <label for="schemaOutput" class="form-label">Database Schema (JSON):</label>
+            <textarea id="schemaOutput"
+                  class="form-control"
+                  rows="20"
+                  readonly="readonly"
+                  style="font-family: monospace;">@appState.SchemaJson</textarea>
+        </div>
+    }
 </div>
 
 @code {
-	private string connectionString = "Data Source=(localdb)\\MSSQLLocalDB;Initial Catalog=Chinook;Integrated Security=True;Connect Timeout=30;Encrypt=True;Trust Server Certificate=False;Application Intent=ReadWrite;Multi Subnet Failover=False;Command Timeout=30";
-	private string schemaJson = string.Empty;
-	private string errorMessage = string.Empty;
-	private bool isLoading = false;
-	private string saveFilePath = string.Empty;
-	private string saveMessage = string.Empty;
-	private string saveError = string.Empty;
+    private string connectionString = "Data Source=(localdb)\\MSSQLLocalDB;Initial Catalog=Chinook;Integrated Security=True;Connect Timeout=30;Encrypt=True;Trust Server Certificate=False;Application Intent=ReadWrite;Multi Subnet Failover=False;Command Timeout=30";
+    private string errorMessage = string.Empty;
+    private bool isLoading = false;
+    private string saveMessage = string.Empty;
+    private string saveError = string.Empty;
 
-	private async Task GenerateSchema()
-	{
-		errorMessage = string.Empty;
-		schemaJson = string.Empty;
-		saveMessage = string.Empty;
-		saveError = string.Empty;
-		
-		if (string.IsNullOrWhiteSpace(connectionString))
-		{
-			errorMessage = "Please enter a connection string.";
-			return;
-		}
+    private async Task LoadSchema()
+    {
+        if (File.Exists(appState.SaveFilePath))
+        {
+            try
+            {
+                appState.SchemaJson = await File.ReadAllTextAsync(appState.SaveFilePath);
+                errorMessage = string.Empty;
+            }
+            catch (Exception ex)
+            {
+                errorMessage = $"Error loading schema: {ex.Message}";
+            }
+        }
+        else
+        {
+            errorMessage = "Schema file does not exist. Please generate the schema first.";
+        }
+    }
 
-		isLoading = true;
-		StateHasChanged();
+    private bool LoadSchemaButtonDisabled
+    {
+        get
+        {
+            return !File.Exists(appState.SaveFilePath);
+        }
+    }
 
-		try
-		{
-			var schema = await generator.GenerateDatabaseSchemaAsync(connectionString);
-			
-			var options = new JsonSerializerOptions
-			{
-				WriteIndented = true,
-				PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-			};
-			
-			schemaJson = JsonSerializer.Serialize(schema, options);
-		}
-		catch (Exception ex)
-		{
-			errorMessage = ex.Message;
-		}
-		finally
-		{
-			isLoading = false;
-			StateHasChanged();
-		}
-	}
+    private async Task GoToConfigurePage()
+    {
+        navigationManager.NavigateTo("/config");
+    }
+    private async Task DeleteSchema()
+    {
+        if (File.Exists(appState.SaveFilePath))
+        {
+            try
+            {
+                File.Delete(appState.SaveFilePath);
+                appState.SchemaJson = string.Empty;
+                errorMessage = string.Empty;
+            }
+            catch (Exception ex)
+            {
+                errorMessage = $"Error deleting schema: {ex.Message}";
+            }
+        }
+        else
+        {
+            errorMessage = "Schema file does not exist.";
+        }
+    }
 
-	private async Task SaveJson()
-	{
-		saveMessage = string.Empty;
-		saveError = string.Empty;
+    private async Task GenerateSchema()
+    {
+        errorMessage = string.Empty;
+        appState.SchemaJson = string.Empty;
+        saveMessage = string.Empty;
+        saveError = string.Empty;
 
-		if (string.IsNullOrWhiteSpace(saveFilePath))
-		{
-			saveError = "Please enter a file path.";
-			return;
-		}
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            errorMessage = "Please enter a connection string.";
+            return;
+        }
 
-		try
-		{
-			var directory = Path.GetDirectoryName(saveFilePath);
-			if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
-			{
-				Directory.CreateDirectory(directory);
-			}
+        isLoading = true;
+        StateHasChanged();
 
-			await File.WriteAllTextAsync(saveFilePath, schemaJson);
-			saveMessage = $"Successfully saved to: {saveFilePath}";
-		}
-		catch (Exception ex)
-		{
-			saveError = ex.Message;
-		}
-	}
+        try
+        {
+            var schema = await generator.GenerateDatabaseSchemaAsync(connectionString);
+
+            var options = new JsonSerializerOptions
+            {
+                WriteIndented = true,
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            };
+
+            appState.SchemaJson = JsonSerializer.Serialize(schema, options);
+
+            // save it
+            try
+            {
+                await File.WriteAllTextAsync(appState.SaveFilePath, appState.SchemaJson);
+                saveMessage = $"Successfully saved to: {appState.SaveFilePath}";
+            }
+            catch (Exception ex)
+            {
+                saveError = ex.Message;
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Set a default save file path and load it if it exists
+        appState.SaveFilePath = Path.Combine(Environment.CurrentDirectory, "database_schema.json");
+        if (File.Exists(appState.SaveFilePath))
+            await LoadSchema();
+    }
 }
 
