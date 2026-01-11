@@ -114,7 +114,85 @@
       "columnConfigurations": []
     }
   ],
-  "joinHints": [],
+  "joinHints": [
+    {
+      "fromTable": "dbo.Album",
+      "fromColumn": "ArtistId",
+      "toTable": "dbo.Artist",
+      "toColumn": "ArtistId",
+      "hint": ""
+    },
+    {
+      "fromTable": "dbo.Customer",
+      "fromColumn": "SupportRepId",
+      "toTable": "dbo.Employee",
+      "toColumn": "EmployeeId",
+      "hint": ""
+    },
+    {
+      "fromTable": "dbo.Employee",
+      "fromColumn": "ReportsTo",
+      "toTable": "dbo.Employee",
+      "toColumn": "EmployeeId",
+      "hint": ""
+    },
+    {
+      "fromTable": "dbo.Invoice",
+      "fromColumn": "CustomerId",
+      "toTable": "dbo.Customer",
+      "toColumn": "CustomerId",
+      "hint": ""
+    },
+    {
+      "fromTable": "dbo.InvoiceLine",
+      "fromColumn": "InvoiceId",
+      "toTable": "dbo.Invoice",
+      "toColumn": "InvoiceId",
+      "hint": ""
+    },
+    {
+      "fromTable": "dbo.InvoiceLine",
+      "fromColumn": "TrackId",
+      "toTable": "dbo.Track",
+      "toColumn": "TrackId",
+      "hint": ""
+    },
+    {
+      "fromTable": "dbo.PlaylistTrack",
+      "fromColumn": "PlaylistId",
+      "toTable": "dbo.Playlist",
+      "toColumn": "PlaylistId",
+      "hint": ""
+    },
+    {
+      "fromTable": "dbo.PlaylistTrack",
+      "fromColumn": "TrackId",
+      "toTable": "dbo.Track",
+      "toColumn": "TrackId",
+      "hint": ""
+    },
+    {
+      "fromTable": "dbo.Track",
+      "fromColumn": "AlbumId",
+      "toTable": "dbo.Album",
+      "toColumn": "AlbumId",
+      "hint": ""
+    },
+    {
+      "fromTable": "dbo.Track",
+      "fromColumn": "GenreId",
+      "toTable": "dbo.Genre",
+      "toColumn": "GenreId",
+      "hint": ""
+    },
+    {
+      "fromTable": "dbo.Track",
+      "fromColumn": "MediaTypeId",
+      "toTable": "dbo.MediaType",
+      "toColumn": "MediaTypeId",
+      "hint": ""
+    }
+  ],
   "requiredFilters": [],
   "businessTerms": []
 }
