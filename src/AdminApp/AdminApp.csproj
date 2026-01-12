@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\QueryGenerator\QueryGenerator.csproj" />
+    <ProjectReference Include="..\AvnDataGenie\AvnDataGenie.csproj" />
   </ItemGroup>
 
 </Project>

@@ -37,6 +37,7 @@ public class Generator(Configuration config, IChatClient chatClient)
 
 		// Extract and return the generated statement
 		return response.Text;
+		
 	}
 
 
