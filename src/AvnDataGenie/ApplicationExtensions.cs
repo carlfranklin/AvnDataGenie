@@ -1,6 +1,7 @@
 using Azure.AI.OpenAI;
 using Azure;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -12,28 +13,45 @@ namespace AvnDataGenie;
 
 public static class ApplicationExtensions
 {
+	/// <summary>
+	/// Builds a chat client with conditional distributed caching if available
+	/// </summary>
+	private static IChatClient BuildChatClientWithAdditionalConfiguration(IChatClient baseClient, IServiceProvider serviceProvider)
+	{
+		var builder = new ChatClientBuilder(baseClient);
+		
+		// Only add caching if IDistributedCache is available
+		if (serviceProvider.GetService<IDistributedCache>() != null)
+		{
+			builder = builder.UseDistributedCache();
+		}
+		
+		return builder.Build(serviceProvider);
+	}
 
-	private static readonly Dictionary<LlmType, Func<IServiceCollection, Configuration, IChatClient>> ChatClientFactories = new()
+	private static readonly Dictionary<LlmType, Func<IServiceProvider, Configuration, IChatClient>> ChatClientFactories = new()
 	{
 		{
-			LlmType.OpenAI, (services, config) =>
+			LlmType.OpenAI, (serviceProvider, config) =>
 			{
 				var client = new OpenAIClient(config.LlmApiKey);
-				return client.GetChatClient(config.ModelName).AsIChatClient();
+				var baseClient = client.GetChatClient(config.ModelName).AsIChatClient();
+				return BuildChatClientWithAdditionalConfiguration(baseClient, serviceProvider);
 			}
 		},
 		{
-			LlmType.AzureOpenAI, (services, config) =>
+			LlmType.AzureOpenAI, (serviceProvider, config) =>
 			{
 				var client = new Azure.AI.OpenAI.AzureOpenAIClient(new Uri(config.LlmEndpoint), new AzureKeyCredential(config.LlmApiKey));
-				return client.GetChatClient(config.ModelName).AsIChatClient();
+				var baseClient = client.GetChatClient(config.ModelName).AsIChatClient();
+				return BuildChatClientWithAdditionalConfiguration(baseClient, serviceProvider);
 			}
 		},
 		{
-			LlmType.Ollama, (services, config) =>
+			LlmType.Ollama, (serviceProvider, config) =>
 			{
-				var ollamaClient = new OllamaApiClient(new Uri(config.LlmEndpoint), config.ModelName);
-				return ollamaClient;
+				var baseClient = new OllamaApiClient(new Uri(config.LlmEndpoint), config.ModelName);
+				return BuildChatClientWithAdditionalConfiguration(baseClient, serviceProvider);
 			}
 		}
 	};
@@ -48,8 +66,6 @@ public static class ApplicationExtensions
 	/// <returns>The service collection for chaining</returns>
 	public static IServiceCollection AddAvnDataGenie(this IServiceCollection services, IConfiguration configuration, Action<Configuration>? configureOptions = null)
 	{
-
-		Console.WriteLine("Adding AvnDataGenie services to the service collection.");
 
 		// Get and bind configuration from the "AvnDataGenie" section
 		var config = new Configuration
@@ -75,17 +91,18 @@ public static class ApplicationExtensions
 		{
 			services.Configure<Configuration>(configureOptions);
 		}
-
-
-		Console.WriteLine("Configuring IChatClient for AvnDataGenie.");
 		
-		Console.WriteLine($"Configuring IChatClient for LLM Type: {config.LlmType}, Endpoint: {config.LlmEndpoint}, Model: {config.ModelName}");
+		// Add distributed caching for chat client responses if not already configured
+		if (!services.Any(service => service.ServiceType == typeof(Microsoft.Extensions.Caching.Distributed.IDistributedCache)))
+		{
+			services.AddDistributedMemoryCache();
+		}
 		
 		services.AddScoped<IChatClient>(sp =>
 		{
 			if (ChatClientFactories.TryGetValue(config.LlmType, out var factory))
 			{
-				return factory(services, config);
+				return factory(sp, config);
 			}
 			else
 			{

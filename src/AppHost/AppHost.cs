@@ -5,11 +5,11 @@ var ollama = builder.AddOllama("ollama")
 	.WithDataVolume()
 	.WithLifetime(ContainerLifetime.Persistent);
 
-var gemma = ollama.AddModel("gemma", "gemma3:1b");
+var model = ollama.AddModel("test-model", "qwen2.5-coder:1.5b");
 
 var adminApp = builder.AddProject<Projects.AdminApp>("admin")
-	.WithReference(gemma)
-	.WaitFor(gemma)
+	.WithReference(model)
+	.WaitFor(model)
 	.WithExternalHttpEndpoints();
 	
 builder.Build().Run();

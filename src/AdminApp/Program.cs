@@ -27,7 +27,7 @@ builder.Services.AddAvnDataGenie(builder.Configuration, config =>
 
 	// use a regex to extract the URL from a connectionstring in this format:  "Endpoint=http://localhost:60581;Model=gemma3:1b"
 	var reAspireUrlExtract = new System.Text.RegularExpressions.Regex(@"Endpoint=(?<url>[^;]+);Model=(?<model>.+)");
-	var match = reAspireUrlExtract.Match(builder.Configuration["connectionstrings:gemma"] ??"");
+	var match = reAspireUrlExtract.Match(builder.Configuration["connectionstrings:test-model"] ??"");
 	if (match.Success)
 	{
 		config.LlmEndpoint = match.Groups["url"].Value;
@@ -35,13 +35,13 @@ builder.Services.AddAvnDataGenie(builder.Configuration, config =>
 	}
 	else
 	{	
-		config.LlmEndpoint = builder.Configuration["connectionstrings:gemma"]; // Example endpoint for Ollama
+		config.LlmEndpoint = builder.Configuration["connectionstrings:test-model"]; // Example endpoint for Ollama
 		config.ModelName = "gemma3:1b";
 	}
 	
 	// Performance optimizations for Ollama
 	config.RequestTimeoutSeconds = 60; // Shorter timeout for faster failures
-	config.MaxTokens = 500; // SQL statements are usually short
+	config.MaxTokens = 50000; // SQL statements are usually short
 	config.Temperature = 0.1f; // Very low temperature for consistent, deterministic SQL output
 });
 
