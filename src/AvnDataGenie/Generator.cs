@@ -8,36 +8,57 @@ namespace AvnDataGenie;
 
 public class Generator(IOptions<Configuration> config, IChatClient chatClient)
 {
+	private readonly Configuration _config = config.Value;
 
 	public const string SYSTEMPROMPT = """
-		You are an expert data query generator for Microsoft SQL Server. Given a natural language query, generate the appropriate data read statement 
-		based on the provided JSON schema and LLM metadata.
-		Respond only with the generated read statement without any additional explanations or text.
+		You are an expert SQL Server query generator. Generate ONLY the SQL read statement based on the provided schema and query. 
+		No explanations, comments, or additional text - just the SQL statement.
 		""";
 	
 	public async Task<string> GenerateStatementFromNlq(string naturalLanguageQuery, string jsonSchema, string llmMetadata)
 	{
-		// Example prompt construction
-		var prompt = $"Generate a read statement for the following query: {naturalLanguageQuery}";
+		// Combine all user prompts into a single, structured message for better performance
+		var combinedPrompt = $"""
+			DATABASE SCHEMA:
+			{jsonSchema}
 
-		var schemaPrompt = $"The schema for the database is as follows: {jsonSchema}";
+			LLM METADATA:
+			{llmMetadata}
 
-		var hintPrompt = $"Use the following LLM metadata to inform your response: {llmMetadata}";
+			QUERY REQUEST:
+			{naturalLanguageQuery}
 
-		// Create chat message
+			Generate the SQL read statement:
+			""";
+
+		// Create optimized chat messages (single user message instead of multiple)
 		var chatMessages = new ChatMessage[]
 		{
 			new ChatMessage(ChatRole.System, SYSTEMPROMPT),
-			new ChatMessage(ChatRole.User, schemaPrompt),
-			new ChatMessage(ChatRole.User, hintPrompt),
-			new ChatMessage(ChatRole.User, prompt)
+			new ChatMessage(ChatRole.User, combinedPrompt)
 		};
 
-		// Send request to the chat client
-		var response = await chatClient.GetResponseAsync(chatMessages);
+		// Configure chat options for better performance
+		var chatOptions = new ChatOptions
+		{
+			MaxOutputTokens = _config.MaxTokens,
+			Temperature = _config.Temperature
+		};
 
-		// Extract and return the generated statement
-		return response.Text;
+		// Send request with timeout and performance options
+		using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(_config.RequestTimeoutSeconds));
+		var response = await chatClient.GetResponseAsync(chatMessages, chatOptions, cts.Token);
+
+		// Clean and return the generated statement
+		var sqlStatement = response.Text.Trim();
+		
+		// Remove any potential extra formatting or comments that might slip through
+		if (sqlStatement.StartsWith("```sql"))
+		{
+			sqlStatement = sqlStatement.Replace("```sql", "").Replace("```", "").Trim();
+		}
+		
+		return sqlStatement;
 
 	}
 

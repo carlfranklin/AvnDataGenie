@@ -13,4 +13,9 @@
     <ProjectReference Include="..\ServiceDefaults\ServiceDefaults.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Markdig" Version="0.37.0" />
+    <PackageReference Include="Markdig.SyntaxHighlighting" Version="1.1.7" />
+  </ItemGroup>
+
 </Project>

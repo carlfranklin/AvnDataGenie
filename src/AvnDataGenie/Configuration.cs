@@ -23,4 +23,19 @@ public class Configuration
 		/// </summary>
 		public required string ModelName {get; set;} = string.Empty;
 
+		/// <summary>
+		/// Request timeout in seconds for LLM calls (default: 120 seconds)
+		/// </summary>
+		public int RequestTimeoutSeconds { get; set; } = 120;
+
+		/// <summary>
+		/// Maximum tokens for the response (helps control response length and speed)
+		/// </summary>
+		public int? MaxTokens { get; set; } = 1000;
+
+		/// <summary>
+		/// Temperature for response randomness (0.0-1.0, lower = more deterministic/faster)
+		/// </summary>
+		public float Temperature { get; set; } = 0.1f;
+
 }

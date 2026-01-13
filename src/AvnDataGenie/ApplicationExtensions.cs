@@ -12,6 +12,33 @@ namespace AvnDataGenie;
 
 public static class ApplicationExtensions
 {
+
+	private static readonly Dictionary<LlmType, Func<IServiceCollection, Configuration, IChatClient>> ChatClientFactories = new()
+	{
+		{
+			LlmType.OpenAI, (services, config) =>
+			{
+				var client = new OpenAIClient(config.LlmApiKey);
+				return client.GetChatClient(config.ModelName).AsIChatClient();
+			}
+		},
+		{
+			LlmType.AzureOpenAI, (services, config) =>
+			{
+				var client = new Azure.AI.OpenAI.AzureOpenAIClient(new Uri(config.LlmEndpoint), new AzureKeyCredential(config.LlmApiKey));
+				return client.GetChatClient(config.ModelName).AsIChatClient();
+			}
+		},
+		{
+			LlmType.Ollama, (services, config) =>
+			{
+				var ollamaClient = new OllamaApiClient(new Uri(config.LlmEndpoint), config.ModelName);
+				return ollamaClient;
+			}
+		}
+	};
+
+
 	/// <summary>
 	/// Adds AvnDataGenie services to the dependency injection container
 	/// </summary>
@@ -54,38 +81,19 @@ public static class ApplicationExtensions
 		
 		Console.WriteLine($"Configuring IChatClient for LLM Type: {config.LlmType}, Endpoint: {config.LlmEndpoint}, Model: {config.ModelName}");
 		
-		//return services;
-		services.AddScoped(sp =>
+		services.AddScoped<IChatClient>(sp =>
 		{
-			return new OllamaApiClient(new Uri(config.LlmEndpoint), config.ModelName) as IChatClient;
+			if (ChatClientFactories.TryGetValue(config.LlmType, out var factory))
+			{
+				return factory(services, config);
+			}
+			else
+			{
+				throw new InvalidOperationException($"Unsupported LLM type: {config.LlmType}");
+			}
 		});
-
-
-		// Register IChatClient based on the configured LLM type
-		// switch (config.LlmType)
-		// {
-		// 	case LlmType.OpenAI:
-		// 		services.AddChatClient(new OpenAIClient(config.LlmApiKey)
-		// 			.GetChatClient(config.ModelName)
-		// 			.AsIChatClient());
-		// 		break;
-				
-		// 	case LlmType.AzureOpenAI:
-		// 		services.AddChatClient(new AzureOpenAIClient(new Uri(config.LlmEndpoint), new AzureKeyCredential(config.LlmApiKey))
-		// 			.GetChatClient(config.ModelName)
-		// 			.AsIChatClient());
-		// 		break;
-				
-		// 	case LlmType.Ollama:
-		// 		services.AddChatClient(new OllamaApiClient(new Uri(config.LlmEndpoint), config.ModelName));
-		// 		break;
-				
-		// 	default:
-		// 		throw new InvalidOperationException($"Unsupported LLM type: {config.LlmType}");
-		// }
-
+		
 		// TODO: Add other AvnDataGenie services here as needed
-		// services.AddScoped<IYourService, YourService>();
 		services.AddScoped<Generator>();
 
 		return services;

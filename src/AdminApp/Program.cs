@@ -38,6 +38,11 @@ builder.Services.AddAvnDataGenie(builder.Configuration, config =>
 		config.LlmEndpoint = builder.Configuration["connectionstrings:gemma"]; // Example endpoint for Ollama
 		config.ModelName = "gemma3:1b";
 	}
+	
+	// Performance optimizations for Ollama
+	config.RequestTimeoutSeconds = 60; // Shorter timeout for faster failures
+	config.MaxTokens = 500; // SQL statements are usually short
+	config.Temperature = 0.1f; // Very low temperature for consistent, deterministic SQL output
 });
 
 var app = builder.Build();
