@@ -1,7 +1,3 @@
-﻿#:package CommunityToolkit.Aspire.Hosting.Ollama@13.0.1-beta.468
-#:project AdminApp
-#:sdk Aspire.AppHost.Sdk@13.1.0
-
 var builder = DistributedApplication.CreateBuilder(args);
 
 var ollama = builder.AddOllama("ollama")
@@ -14,5 +10,5 @@ var adminApp = builder.AddProject<Projects.AdminApp>("admin")
 	.WithReference(gemma)
 	.WaitFor(gemma)
 	.WithExternalHttpEndpoints();
-
+	
 builder.Build().Run();

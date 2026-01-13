@@ -4,6 +4,8 @@ using AvnDataGenie;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.AddServiceDefaults();
+
 // Add services to the container.
 builder.Services.AddRazorComponents()
 	.AddInteractiveServerComponents();
@@ -12,14 +14,20 @@ builder.Services.AddScoped<AppState>();
 
 builder.Services.AddSingleton<QueryGenerator.Generator>();
 
+Console.WriteLine("Configuring AvnDataGenie integration...");
+
 // Test AvnDataGenie integration
 builder.Services.AddAvnDataGenie(builder.Configuration, config =>
 {
+
+	Console.WriteLine("Configuring AvnDataGenie with Ollama settings.");
+
 	// You can customize the configuration here if needed
 	config.LlmType = LlmType.Ollama;
+
 	// use a regex to extract the URL from a connectionstring in this format:  "Endpoint=http://localhost:60581;Model=gemma3:1b"
 	var reAspireUrlExtract = new System.Text.RegularExpressions.Regex(@"Endpoint=(?<url>[^;]+);Model=(?<model>.+)");
-	var match = reAspireUrlExtract.Match(builder.Configuration["connectionstrings__gemma"] ??"");
+	var match = reAspireUrlExtract.Match(builder.Configuration["connectionstrings:gemma"] ??"");
 	if (match.Success)
 	{
 		config.LlmEndpoint = match.Groups["url"].Value;
@@ -27,7 +35,7 @@ builder.Services.AddAvnDataGenie(builder.Configuration, config =>
 	}
 	else
 	{	
-		config.LlmEndpoint = builder.Configuration["connectionstrings__gemma"]; // Example endpoint for Ollama
+		config.LlmEndpoint = builder.Configuration["connectionstrings:gemma"]; // Example endpoint for Ollama
 		config.ModelName = "gemma3:1b";
 	}
 });
@@ -47,6 +55,9 @@ app.UseHttpsRedirection();
 app.UseAntiforgery();
 
 app.MapStaticAssets();
+
+app.MapDefaultEndpoints();
+
 app.MapRazorComponents<App>()
 	.AddInteractiveServerRenderMode();
 

@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using OpenAI;
 using OllamaSharp;
+using Microsoft.Extensions.Logging;
 
 namespace AvnDataGenie;
 
@@ -20,7 +21,26 @@ public static class ApplicationExtensions
 	/// <returns>The service collection for chaining</returns>
 	public static IServiceCollection AddAvnDataGenie(this IServiceCollection services, IConfiguration configuration, Action<Configuration>? configureOptions = null)
 	{
-		// Bind configuration from the "AvnDataGenie" section
+
+		Console.WriteLine("Adding AvnDataGenie services to the service collection.");
+
+		// Get and bind configuration from the "AvnDataGenie" section
+		var config = new Configuration
+		{
+			LlmEndpoint = string.Empty,
+			LlmApiKey = string.Empty,
+			LlmType = LlmType.OpenAI,
+			ModelName = string.Empty
+		};
+		configuration.GetSection("AvnDataGenie").Bind(config);
+		
+		// Apply additional configuration if provided
+		if (configureOptions != null)
+		{
+			configureOptions(config);
+		}
+
+		// Bind configuration from the "AvnDataGenie" section for IOptions pattern
 		services.Configure<Configuration>(configuration.GetSection("AvnDataGenie"));
 		
 		// Apply additional configuration if provided
@@ -29,46 +49,44 @@ public static class ApplicationExtensions
 			services.Configure<Configuration>(configureOptions);
 		}
 
-		// Add the Configuration as a singleton service
-		services.AddSingleton<Configuration>(provider =>
+
+		Console.WriteLine("Configuring IChatClient for AvnDataGenie.");
+		
+		Console.WriteLine($"Configuring IChatClient for LLM Type: {config.LlmType}, Endpoint: {config.LlmEndpoint}, Model: {config.ModelName}");
+		
+		//return services;
+		services.AddScoped(sp =>
 		{
-			var options = provider.GetService<IOptionsMonitor<Configuration>>();
-			return options?.CurrentValue ?? new Configuration 
-			{ 
-				LlmEndpoint = string.Empty,
-				LlmApiKey = string.Empty,
-				LlmType = LlmType.OpenAI, // Default value, adjust as needed
-				ModelName = string.Empty
-			};
+			return new OllamaApiClient(new Uri(config.LlmEndpoint), config.ModelName) as IChatClient;
 		});
 
-		// Register IChatClient based on the configured LLM type using AddChatClient
-		services.AddChatClient(services =>
-		{
-			var options = services.GetRequiredService<IOptionsMonitor<Configuration>>();
-			var config = options.CurrentValue;
-			
-			return config.LlmType switch
-			{
-				LlmType.OpenAI => 
-					new OpenAIClient(config.LlmApiKey)
-						.GetChatClient(config.ModelName)
-						.AsIChatClient(),
-					
-				LlmType.AzureOpenAI => 
-					new AzureOpenAIClient(new Uri(config.LlmEndpoint), new AzureKeyCredential(config.LlmApiKey))
-						.GetChatClient(config.ModelName)
-						.AsIChatClient(),
-					
-				LlmType.Ollama => 
-					new OllamaApiClient(new Uri(config.LlmEndpoint), config.ModelName),
-					
-				_ => throw new InvalidOperationException($"Unsupported LLM type: {config.LlmType}")
-			};
-		});
+
+		// Register IChatClient based on the configured LLM type
+		// switch (config.LlmType)
+		// {
+		// 	case LlmType.OpenAI:
+		// 		services.AddChatClient(new OpenAIClient(config.LlmApiKey)
+		// 			.GetChatClient(config.ModelName)
+		// 			.AsIChatClient());
+		// 		break;
+				
+		// 	case LlmType.AzureOpenAI:
+		// 		services.AddChatClient(new AzureOpenAIClient(new Uri(config.LlmEndpoint), new AzureKeyCredential(config.LlmApiKey))
+		// 			.GetChatClient(config.ModelName)
+		// 			.AsIChatClient());
+		// 		break;
+				
+		// 	case LlmType.Ollama:
+		// 		services.AddChatClient(new OllamaApiClient(new Uri(config.LlmEndpoint), config.ModelName));
+		// 		break;
+				
+		// 	default:
+		// 		throw new InvalidOperationException($"Unsupported LLM type: {config.LlmType}");
+		// }
 
 		// TODO: Add other AvnDataGenie services here as needed
 		// services.AddScoped<IYourService, YourService>();
+		services.AddScoped<Generator>();
 
 		return services;
 	}

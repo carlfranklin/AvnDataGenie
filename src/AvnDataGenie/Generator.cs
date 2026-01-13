@@ -1,11 +1,12 @@
 using Azure.AI.Inference;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Options;
 using OllamaSharp;
 using ChatRole = Microsoft.Extensions.AI.ChatRole;
 
 namespace AvnDataGenie;
 
-public class Generator(Configuration config, IChatClient chatClient)
+public class Generator(IOptions<Configuration> config, IChatClient chatClient)
 {
 
 	public const string SYSTEMPROMPT = """
@@ -37,7 +38,7 @@ public class Generator(Configuration config, IChatClient chatClient)
 
 		// Extract and return the generated statement
 		return response.Text;
-		
+
 	}
 
 
