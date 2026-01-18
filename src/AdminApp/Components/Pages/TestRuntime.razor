@@ -1,6 +1,8 @@
 @page "/testruntime"
 @inject AvnDataGenie.Generator DataGenerator
 @inject IJSRuntime JSRuntime
+@inject AppState appState
+@inject NavigationManager navigationManager
 @using Markdig
 @using Markdig.SyntaxHighlighting
 
@@ -91,9 +93,14 @@ Example: Show me all customers who placed orders in the last 30 days"
                         <h5 class="mb-0">
                             <i class="bi bi-code-square"></i> Generated SQL
                         </h5>
-                        <button class="btn btn-outline-secondary btn-sm" @onclick="CopyToClipboard">
-                            <i class="bi bi-clipboard"></i> Copy
-                        </button>
+                        <div>
+                            <button class="btn btn-outline-secondary btn-sm me-2" @onclick="CopyToClipboard">
+                                <i class="bi bi-clipboard"></i> Copy
+                            </button>
+                            <button class="btn btn-primary btn-sm" @onclick="ExecuteResults">
+                                <i class="bi bi-play-fill"></i> Execute
+                            </button>
+                        </div>
                     </div>
                     <div class="card-body p-0">
                         <div class="markdown-content">
@@ -143,6 +150,9 @@ Example: Show me all customers who placed orders in the last 30 days"
         {
             GeneratedSQL = await DataGenerator.GenerateStatementFromNlq(NaturalLanguageInput, databaseSchema, llmConfig);
             
+            // Store in AppState for SQL Results page
+            appState.SQLString = GeneratedSQL;
+            
             // Convert SQL to markdown with syntax highlighting - only add code fences if not already present
             string markdownContent = GeneratedSQL.StartsWith("```")
 								? GeneratedSQL
@@ -183,5 +193,10 @@ Example: Show me all customers who placed orders in the last 30 days"
             // Fallback for older browsers or when clipboard API is not available
             await JSRuntime.InvokeVoidAsync("fallbackCopyToClipboard", GeneratedSQL);
         }
+    }
+
+    private void ExecuteResults()
+    {
+        navigationManager.NavigateTo("/sqlresults");
     }
 }

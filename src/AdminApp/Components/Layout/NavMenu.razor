@@ -1,4 +1,7 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
+@rendermode InteractiveServer
+@inject AppState appState
+
+<div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
         <a class="navbar-brand" href="">AdminApp</a>
     </div>
@@ -15,7 +18,12 @@
 						<NavLink class="nav-link" href="/testRuntime">
 								<span class="bi bi-play-circle" aria-hidden="true"></span> Test Runtime
 						</NavLink>
+            @if (!string.IsNullOrWhiteSpace(appState.SQLString))
+            {
+                <NavLink class="nav-link" href="/sqlresults">
+                    <span class="bi bi-table" aria-hidden="true"></span> SQL Results
+                </NavLink>
+            }
         </div>
     </nav>
 </div>
-

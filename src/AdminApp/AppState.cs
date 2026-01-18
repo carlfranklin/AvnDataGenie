@@ -9,4 +9,5 @@ public class AppState
 	public DatabaseSchema? DatabaseSchema { get; set; }
 	public LlmConfiguration LlmConfiguration { get; set; } = new();
 	public string ConfigSaveFilePath { get; set; } = string.Empty;
+	public string SQLString { get; set; } = string.Empty;
 }
