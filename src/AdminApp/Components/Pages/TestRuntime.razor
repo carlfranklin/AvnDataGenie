@@ -1,0 +1,187 @@
+@page "/testruntime"
+@inject AvnDataGenie.Generator DataGenerator
+@inject IJSRuntime JSRuntime
+@using Markdig
+@using Markdig.SyntaxHighlighting
+
+<PageTitle>Test Runtime - AvnDataGenie</PageTitle>
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h3 class="mb-4">Test Runtime</h3>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Configuration Section -->
+        <div class="col-lg-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Configuration</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="databaseSchema" class="form-label">
+                            <i class="bi bi-database"></i> Database Schema
+                        </label>
+                        <textarea class="form-control font-monospace small" 
+                                  id="databaseSchema" 
+                                  rows="8" 
+                                  readonly 
+                                  style="resize: vertical; background-color: #f8f9fa;">@databaseSchema</textarea>
+                    </div>
+                    <div class="mb-0">
+                        <label for="llmConfig" class="form-label">
+                            <i class="bi bi-gear"></i> LLM Configuration
+                        </label>
+                        <textarea class="form-control font-monospace small" 
+                                  id="llmConfig" 
+                                  rows="8" 
+                                  readonly 
+                                  style="resize: vertical; background-color: #f8f9fa;">@llmConfig</textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Query Generation Section -->
+        <div class="col-lg-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Query Generation</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="naturalLanguageInput" class="form-label">
+                            <i class="bi bi-chat-text"></i> Natural Language Query
+                        </label>
+                        <textarea class="form-control" 
+                                  id="naturalLanguageInput" 
+                                  rows="4" 
+                                  @bind="NaturalLanguageInput" 
+                                  placeholder="Describe your data query in plain English...
+
+Example: Show me all customers who placed orders in the last 30 days"
+                                  style="resize: vertical;"></textarea>
+                    </div>
+                    <button class="btn btn-primary btn-lg w-100" @onclick="GenerateSQL" disabled="@IsGenerating">
+                        @if (IsGenerating)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                            <text>Generating...</text>
+                        }
+                        else
+                        {
+                            <i class="bi bi-magic me-2"></i>
+                            <text>Generate SQL</text>
+                        }
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(GeneratedSQLHtml))
+    {
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="bi bi-code-square"></i> Generated SQL
+                        </h5>
+                        <button class="btn btn-outline-secondary btn-sm" @onclick="CopyToClipboard">
+                            <i class="bi bi-clipboard"></i> Copy
+                        </button>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="markdown-content">
+                            @((MarkupString)GeneratedSQLHtml)
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+
+    private string databaseSchema = string.Empty;
+    private string llmConfig = string.Empty;
+    private static readonly MarkdownPipeline pipeline = new MarkdownPipelineBuilder()
+        .UseSyntaxHighlighting()
+        .Build();
+
+    public string NaturalLanguageInput { get; set; } = """
+			show me the top artists for 2024 by sales volume
+			""";
+			
+    public string GeneratedSQL { get; set; } = string.Empty;
+    public string GeneratedSQLHtml { get; set; } = string.Empty;
+    public bool IsGenerating { get; set; } = false;
+
+    protected override Task OnInitializedAsync()
+    {
+        // load test data from the JSON files on disk
+        databaseSchema = new StreamReader("database_schema.json").ReadToEnd();
+        llmConfig = new StreamReader("llm_config.json").ReadToEnd();
+
+        return base.OnInitializedAsync();
+    }
+
+    private async Task GenerateSQL(MouseEventArgs args)
+    {
+        if (string.IsNullOrWhiteSpace(NaturalLanguageInput))
+            return;
+
+        IsGenerating = true;
+        StateHasChanged();
+
+        try
+        {
+            GeneratedSQL = await DataGenerator.GenerateStatementFromNlq(NaturalLanguageInput, databaseSchema, llmConfig);
+            
+            // Convert SQL to markdown with syntax highlighting - only add code fences if not already present
+            string markdownContent = GeneratedSQL.StartsWith("```")
+								? GeneratedSQL
+								: $"```sql\n{GeneratedSQL}\n```";
+            GeneratedSQLHtml = Markdown.ToHtml(markdownContent, pipeline);
+        }
+        catch (Exception ex)
+        {
+            GeneratedSQL = $"-- Error generating SQL:\n-- {ex.Message}";
+            
+            // Handle error case - check for fences too
+            string errorMarkdown;
+            if (GeneratedSQL.StartsWith("```"))
+            {
+                errorMarkdown = GeneratedSQL;
+            }
+            else
+            {
+                errorMarkdown = $"```sql\n{GeneratedSQL}\n```";
+            }
+            GeneratedSQLHtml = Markdown.ToHtml(errorMarkdown, pipeline);
+        }
+        finally
+        {
+            IsGenerating = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task CopyToClipboard()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", GeneratedSQL);
+        }
+        catch
+        {
+            // Fallback for older browsers or when clipboard API is not available
+            await JSRuntime.InvokeVoidAsync("fallbackCopyToClipboard", GeneratedSQL);
+        }
+    }
+}
