@@ -10,40 +10,49 @@ public class Generator(IOptions<Configuration> config, IChatClient chatClient)
 {
 	private readonly Configuration _config = config.Value;
 
-	public const string SYSTEMPROMPT = """
-		Generate T-SQL SELECT statements. Output SQL only, no explanations.
+	public string SYSTEMPROMPT = "";
+	//public const string SYSTEMPROMPT = """
+	//	Generate T-SQL SELECT statements. Output SQL only, no explanations.
 
-		COLUMN NAME RULES (use EXACTLY these names):
-		- Artist: ArtistId, Name (NOT ArtistName)
-		- Album: AlbumId, Title, ArtistId
-		- Track: TrackId, Name, AlbumId, MediaTypeId, GenreId, Composer, Milliseconds, Bytes, UnitPrice
-		- InvoiceLine: InvoiceLineId, InvoiceId, TrackId, UnitPrice, Quantity (NOT LineItemPrice, NOT LineItemQuantity)
-		- Invoice: InvoiceId, CustomerId, InvoiceDate, Total (InvoiceDate is HERE, not on InvoiceLine)
-		- Customer: CustomerId, FirstName, LastName, Email, SupportRepId
-		- Genre: GenreId, Name
-		- MediaType: MediaTypeId, Name
-		- Playlist: PlaylistId, Name
-		- PlaylistTrack: PlaylistId, TrackId
-		- Employee: EmployeeId, FirstName, LastName, Title, ReportsTo
+	//	COLUMN NAME RULES (use EXACTLY these names):
+	//	- Artist: ArtistId, Name (NOT ArtistName)
+	//	- Album: AlbumId, Title, ArtistId
+	//	- Track: TrackId, Name, AlbumId, MediaTypeId, GenreId, Composer, Milliseconds, Bytes, UnitPrice
+	//	- InvoiceLine: InvoiceLineId, InvoiceId, TrackId, UnitPrice, Quantity (NOT LineItemPrice, NOT LineItemQuantity)
+	//	- Invoice: InvoiceId, CustomerId, InvoiceDate, Total (InvoiceDate is HERE, not on InvoiceLine)
+	//	- Customer: CustomerId, FirstName, LastName, Email, SupportRepId
+	//	- Genre: GenreId, Name
+	//	- MediaType: MediaTypeId, Name
+	//	- Playlist: PlaylistId, Name
+	//	- PlaylistTrack: PlaylistId, TrackId
+	//	- Employee: EmployeeId, FirstName, LastName, Title, ReportsTo
 
-		JOIN PATHS:
-		- Artist sales: InvoiceLine → Track → Album → Artist
-		- Need InvoiceDate? Join InvoiceLine → Invoice
+	//	JOIN PATHS:
+	//	- Artist sales: InvoiceLine → Track → Album → Artist
+	//	- Need InvoiceDate? Join InvoiceLine → Invoice
 
-		FORMAT:
-		SELECT TOP(n)
-		    col1,
-		    col2
-		FROM dbo.Table1 t1
-		INNER JOIN dbo.Table2 t2 ON t1.Id = t2.ForeignId
-		GROUP BY col1
-		ORDER BY col2 DESC;
+	//	FORMAT:
+	//	SELECT TOP(n)
+	//	    col1,
+	//	    col2
+	//	FROM dbo.Table1 t1
+	//	INNER JOIN dbo.Table2 t2 ON t1.Id = t2.ForeignId
+	//	GROUP BY col1
+	//	ORDER BY col2 DESC;
 
-		Use T-SQL: TOP(n) not LIMIT. Output ONLY SQL starting with SELECT.
-		""";
-	
+	//	Use T-SQL: TOP(n) not LIMIT. Output ONLY SQL starting with SELECT.
+	//	""";
+
 	public async Task<string> GenerateStatementFromNlq(string naturalLanguageQuery, string jsonSchema, string llmMetadata)
 	{
+		// generate the system prompt if not already done
+		if (string.IsNullOrWhiteSpace(SYSTEMPROMPT))
+		{
+			SYSTEMPROMPT = SqlPromptBuilder.CreateSystemPromptFromJson(jsonSchema, llmMetadata);
+			//string filePath = "C:\\Users\\carl\\SystemPrompt.txt";
+			//await File.WriteAllTextAsync(filePath, SYSTEMPROMPT);
+		}
+
 		// Combine all user prompts into a single, structured message for better performance
 		var combinedPrompt = $"""
 			SCHEMA (use these exact names):
@@ -225,4 +234,6 @@ public class Generator(IOptions<Configuration> config, IChatClient chatClient)
 
 		return result.ToString();
 	}
+
+
 }
