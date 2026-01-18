@@ -135,9 +135,14 @@ Example: Show me the top 10 customers by total order value this year"></textarea
                             <span class="card-icon">📝</span>
                             Generated SQL
                         </h2>
-                        <button class="btn btn-outline-secondary btn-sm" @onclick="CopyToClipboard">
-                            <span>📋</span> Copy
-                        </button>
+                        <div class="header-actions">
+                            <button class="btn btn-outline-secondary btn-sm" @onclick="CopyToClipboard">
+                                <span>📋</span> Copy
+                            </button>
+                            <button class="btn btn-primary btn-sm" @onclick="ExecuteResults">
+                                <span>▶️</span> Execute Statement
+                            </button>
+                        </div>
                     </div>
                     <div class="card-body result-body">
                         <div class="markdown-content">
@@ -251,6 +256,12 @@ Example: Show me the top 10 customers by total order value this year"></textarea
         border-radius: 0.75rem 0.75rem 0 0;
         display: flex;
         justify-content: space-between;
+        align-items: center;
+    }
+    
+    .header-actions {
+        display: flex;
+        gap: 0.5rem;
         align-items: center;
     }
     
