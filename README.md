@@ -67,6 +67,28 @@ Configure how the LLM interacts with your database through a comprehensive web i
 - Provide definitions and examples for each term
 - Help the LLM understand your business context and generate more accurate queries
 
+### Natural Language to SQL Generation
+- **Test Runtime Interface**: Interactive page for testing SQL generation
+- Input natural language queries (e.g., "show me all customers who placed orders in the last 30 days")
+- Generate SQL SELECT statements using configured schema and LLM rules
+- Real-time SQL generation with loading indicators
+- Syntax-highlighted SQL output with Markdown rendering
+- Copy generated SQL to clipboard
+- Direct navigation to execute queries
+
+### SQL Query Execution & Results
+- **SQL Results Page**: Execute generated queries against your database
+- Display SQL query with syntax highlighting
+- Configurable connection string for query execution
+- Execute queries with progress indication
+- **Smart Results Display**:
+  - Responsive table with scrollable results
+  - Automatic column name formatting (e.g., "AlbumName" → "Album Name")
+  - Row count display
+  - Handles empty result sets gracefully
+  - Error handling with detailed messages
+- Protected navigation - only accessible when SQL has been generated
+
 ### Configuration Persistence
 - Save configuration to JSON file
 - Load existing configurations
@@ -79,6 +101,7 @@ Configure how the LLM interacts with your database through a comprehensive web i
 - .NET 10.0 SDK or later
 - SQL Server database (tested with SQL Server 2019+)
 - Windows, Linux, or macOS
+- (Optional) Ollama for local LLM support OR Azure OpenAI / OpenAI API key for cloud LLM
 
 ### Installation
 
@@ -88,19 +111,100 @@ Configure how the LLM interacts with your database through a comprehensive web i
    cd AvnDataGenie
    ```
 
-2. Build the solution:
+2. Configure your LLM provider using User Secrets:
    ```bash
-   cd src
+   cd src/AppHost
+   dotnet user-secrets init
+   ```
+
+   See the **LLM Configuration** section below for detailed setup instructions for Azure OpenAI, OpenAI, or Ollama.
+
+3. Build the solution:
+   ```bash
+   cd ../
    dotnet build
    ```
 
-3. Run the Admin App:
+4. Run the Admin App:
    ```bash
    cd AdminApp
    dotnet run
    ```
 
-4. Open your browser and navigate to the URL shown in the console (typically `https://localhost:5001`)
+5. Open your browser and navigate to the URL shown in the console (typically `https://localhost:5001`)
+
+## LLM Configuration
+
+AvnDataGenie supports multiple LLM providers. Configure your preferred provider using .NET User Secrets to keep your API keys secure.
+
+### Supported LLM Providers
+
+#### Azure OpenAI
+Best for enterprise deployments with dedicated Azure resources.
+
+```bash
+cd src/AppHost
+dotnet user-secrets set "AvnDataGenie:LlmEndpoint" "https://YOUR-RESOURCE.openai.azure.com/"
+dotnet user-secrets set "AvnDataGenie:LlmApiKey" "your-api-key-here"
+dotnet user-secrets set "AvnDataGenie:LlmType" "AzureOpenAI"
+dotnet user-secrets set "AvnDataGenie:ModelName" "gpt-4"
+```
+
+#### OpenAI
+Standard OpenAI API for cloud-based inference.
+
+```bash
+cd src/AppHost
+dotnet user-secrets set "AvnDataGenie:LlmEndpoint" "https://api.openai.com/v1"
+dotnet user-secrets set "AvnDataGenie:LlmApiKey" "sk-your-api-key-here"
+dotnet user-secrets set "AvnDataGenie:LlmType" "OpenAI"
+dotnet user-secrets set "AvnDataGenie:ModelName" "gpt-4"
+```
+
+#### Ollama (Local)
+**Recommended for development and privacy-sensitive deployments.** Runs entirely on your local machine with no data sent to external services.
+
+1. Install Ollama from [ollama.ai](https://ollama.ai)
+2. Pull a model: `ollama pull qwen2.5-coder:1.5b` (or another model)
+3. Configure AvnDataGenie:
+
+```bash
+cd src/AppHost
+dotnet user-secrets set "AvnDataGenie:LlmEndpoint" "http://localhost:11434"
+dotnet user-secrets set "AvnDataGenie:LlmApiKey" ""
+dotnet user-secrets set "AvnDataGenie:LlmType" "Ollama"
+dotnet user-secrets set "AvnDataGenie:ModelName" "qwen2.5-coder:1.5b"
+```
+
+**Recommended Ollama Models:**
+- `qwen2.5-coder:1.5b` - Fast, small model good for testing
+- `qwen2.5-coder:7b` - Better accuracy, requires more resources
+- `codellama:7b` - Alternative option for SQL generation
+
+### Configuration Parameters
+
+| Secret Key | Description | Example Values |
+|------------|-------------|----------------|
+| `AvnDataGenie:LlmEndpoint` | The base URL for your LLM provider | `https://api.openai.com/v1`<br>`http://localhost:11434` |
+| `AvnDataGenie:LlmApiKey` | Your API key (empty for Ollama) | `sk-...` (OpenAI)<br>`""` (Ollama) |
+| `AvnDataGenie:LlmType` | The LLM provider type | `OpenAI`, `AzureOpenAI`, `Ollama` |
+| `AvnDataGenie:ModelName` | The specific model to use | `gpt-4`, `gpt-3.5-turbo`, `qwen2.5-coder:1.5b` |
+
+### Viewing Your Secrets
+
+To view your configured secrets:
+```bash
+cd src/AppHost
+dotnet user-secrets list
+```
+
+### Removing Secrets
+
+To clear all secrets:
+```bash
+cd src/AppHost
+dotnet user-secrets clear
+```
 
 ## Usage Guide
 
@@ -111,6 +215,7 @@ Configure how the LLM interacts with your database through a comprehensive web i
 2. Click **Generate Schema**
 3. Wait for the schema extraction to complete
 4. The schema is automatically saved to `database_schema.json`
+5. Click **Configure Data Genie** to proceed to configuration
 
 ### Step 2: Configure LLM Rules
 
@@ -156,7 +261,31 @@ Configure how the LLM interacts with your database through a comprehensive web i
 2. Configuration is saved to `llm_config.json`
 3. The configuration auto-loads on subsequent visits
 
-### Step 4: Export and Share
+### Step 4: Test Natural Language Queries
+
+1. Navigate to **Test Runtime** from the navigation menu
+2. Review the loaded database schema and LLM configuration
+3. Enter a natural language query in plain English:
+   - Example: "Show me all customers who placed orders in the last 30 days"
+   - Example: "Get the top 10 products by sales volume"
+   - Example: "List employees hired after January 2020"
+4. Click **Generate SQL**
+5. Review the generated SQL query with syntax highlighting
+6. Use the **Copy** button to copy SQL to clipboard
+7. Click **Execute** to run the query and see results
+
+### Step 5: Execute Queries and View Results
+
+1. After generating SQL in Test Runtime, click **Execute**
+2. Verify the connection string (defaults to the database used for schema generation)
+3. Click **Execute Query** to run the SQL
+4. View results in a formatted table with:
+   - Friendly column headers (e.g., "Album Name" instead of "AlbumName")
+   - Row count
+   - Scrollable results for large datasets
+5. The **SQL Results** link appears in the navigation menu only when a query is available
+
+### Step 6: Export and Share
 
 - Click **Export JSON** to create a timestamped backup
 - Share configuration files with team members
@@ -166,14 +295,22 @@ Configure how the LLM interacts with your database through a comprehensive web i
 
 ```
 src/
-├── AdminApp/               # Blazor web UI for configuration
+├── AdminApp/               # Blazor web UI for configuration and testing
 │   ├── Components/
-│   │   └── Pages/
-│   │       ├── Home.razor        # Schema generation page
-│   │       └── Config.razor      # Configuration page
-│   ├── AppState.cs              # Application state management
+│   │   ├── Pages/
+│   │   │   ├── Home.razor        # Schema generation page
+│   │   │   ├── Config.razor      # Configuration page
+│   │   │   ├── TestRuntime.razor # Natural language query testing
+│   │   │   └── SQLResults.razor  # Query execution and results display
+│   │   └── Layout/
+│   │       ├── MainLayout.razor
+│   │       └── NavMenu.razor     # Dynamic navigation menu
+│   ├── AppState.cs              # Application state (schema, config, SQL)
 │   └── Program.cs
-├── QueryGenerator/        # Core schema extraction logic
+├── AvnDataGenie/           # Core SQL generation logic
+│   ├── Generator.cs             # Natural language to SQL generator
+│   └── SqlPromptBuilder.cs      # LLM prompt construction
+├── QueryGenerator/         # Database schema extraction
 │   ├── Generator.cs             # Database schema generator
 │   └── Models/
 │       ├── DatabaseSchema.cs    # Schema models
@@ -181,7 +318,7 @@ src/
 │       ├── ColumnSchema.cs
 │       ├── ForeignKeySchema.cs
 │       └── LlmConfiguration.cs  # Configuration models
-└── ServiceDefaults/       # Shared service configuration
+└── ServiceDefaults/        # Shared service configuration
 ```
 
 ## Configuration File Format
@@ -219,13 +356,18 @@ Contains LLM interaction rules:
 
 ## Roadmap
 
-- [ ] Query execution interface
-- [ ] Integration with Ollama for local LLM support
-- [ ] Query result visualization
+- [x] Database schema generation from SQL Server
+- [x] LLM configuration management (tables, columns, joins, filters, business terms)
+- [x] Natural language to SQL generation
+- [x] Query execution interface
+- [x] Query result visualization with formatted display
+- [x] Integration with Ollama for local LLM support
 - [ ] Query history and favorites
 - [ ] Support for additional database types (PostgreSQL, MySQL)
 - [ ] Multi-user support with role-based access
 - [ ] Query templates and saved queries
+- [ ] Export results to CSV/Excel
+- [ ] Query performance analytics
 
 ## Contributing
 
