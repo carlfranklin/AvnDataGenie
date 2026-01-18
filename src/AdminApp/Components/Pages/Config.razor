@@ -1,4 +1,4 @@
-﻿@page "/config"
+@page "/config"
 @using QueryGenerator.Models
 @using System.Text.Json
 @inject AppState appState
@@ -6,126 +6,104 @@
 
 @rendermode InteractiveServer
 
-<style>
-    .form-check-input {
-        width: 1.2em;
-        height: 1.2em;
-        border: 2px solid #6c757d !important;
-        background-color: #fff !important;
-        cursor: pointer;
-        -webkit-appearance: none;
-        -moz-appearance: none;
-        appearance: none;
-        border-radius: 0.25em;
-        position: relative;
-    }
-    
-    .form-check-input:checked {
-        background-color: #0d6efd !important;
-        border-color: #0d6efd !important;
-    }
-    
-    .form-check-input:checked::after {
-        content: '✓';
-        position: absolute;
-        color: white;
-        font-size: 1em;
-        font-weight: bold;
-        left: 50%;
-        top: 50%;
-        transform: translate(-50%, -50%);
-    }
-</style>
-
 @if (appState.DatabaseSchema == null)
 {
-    <p>No schema loaded. Please go to the <a href="/">Home</a> page to generate or load a database schema.</p>
+    <div class="empty-state">
+        <div class="empty-state-icon">📋</div>
+        <h2>No Schema Loaded</h2>
+        <p>Please generate or load a database schema before configuring the LLM settings.</p>
+        <a href="/" class="btn btn-primary">
+            <span>🏠</span> Go to Database Schema
+        </a>
+    </div>
 }
 else
 {
-    <div class="container-fluid mt-3">
-        <h1>LLM Configuration</h1>
-        <p class="text-muted">Configure how the LLM interacts with your database</p>
+    <div class="page-header">
+        <div class="page-header-content">
+            <h1 class="page-title">LLM Configuration</h1>
+            <p class="page-description">Configure how the LLM interprets and queries your database schema.</p>
+        </div>
+    </div>
 
-        <ul class="nav nav-tabs" role="tablist">
-            <li class="nav-item" role="presentation">
-                <button class="nav-link @(activeTab == "tables" ? "active" : "")" @onclick="@(() => activeTab = "tables")">
-                    Tables & Columns
-                </button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link @(activeTab == "joins" ? "active" : "")" @onclick="@(() => activeTab = "joins")">
-                    Join Hints
-                </button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link @(activeTab == "filters" ? "active" : "")" @onclick="@(() => activeTab = "filters")">
-                    Required Filters
-                </button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link @(activeTab == "terms" ? "active" : "")" @onclick="@(() => activeTab = "terms")">
-                    Business Terms
-                </button>
-            </li>
-        </ul>
+    <div class="config-tabs">
+        <button class="tab-button @(activeTab == "tables" ? "active" : "")" @onclick="@(() => activeTab = "tables")">
+            <span class="tab-icon">📊</span>
+            <span class="tab-label">Tables & Columns</span>
+        </button>
+        <button class="tab-button @(activeTab == "joins" ? "active" : "")" @onclick="@(() => activeTab = "joins")">
+            <span class="tab-icon">🔗</span>
+            <span class="tab-label">Join Hints</span>
+        </button>
+        <button class="tab-button @(activeTab == "filters" ? "active" : "")" @onclick="@(() => activeTab = "filters")">
+            <span class="tab-icon">🔒</span>
+            <span class="tab-label">Required Filters</span>
+        </button>
+        <button class="tab-button @(activeTab == "terms" ? "active" : "")" @onclick="@(() => activeTab = "terms")">
+            <span class="tab-icon">📚</span>
+            <span class="tab-label">Business Terms</span>
+        </button>
+    </div>
 
-        <div class="tab-content mt-3">
-            @if (activeTab == "tables")
-            {
-                <div class="tab-pane fade show active">
+    <div class="tab-content">
+        @if (activeTab == "tables")
+        {
+            <div class="section-header">
+                <div>
                     <h3>Tables & Columns Configuration</h3>
-                    <p class="text-muted">Rename tables/columns, add descriptions, and mark PII/restricted fields</p>
-                    
-                    @foreach (var table in appState.DatabaseSchema.Tables)
-                    {
-                        var tableKey = $"{table.SchemaName}.{table.TableName}";
-                        var tableConfig = GetOrCreateTableConfig(table.SchemaName, table.TableName);
-                        var isExpanded = expandedTables.Contains(tableKey);
+                    <p class="section-description">Add friendly names, descriptions, and mark sensitive fields.</p>
+                </div>
+            </div>
+            
+            @foreach (var table in appState.DatabaseSchema.Tables)
+            {
+                var tableKey = $"{table.SchemaName}.{table.TableName}";
+                var tableConfig = GetOrCreateTableConfig(table.SchemaName, table.TableName);
+                var isExpanded = expandedTables.Contains(tableKey);
 
-                        <div class="card mb-3">
-                            <div class="card-header" style="cursor: pointer;" @onclick="() => ToggleTable(tableKey)">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <strong>@table.SchemaName.@table.TableName</strong>
-                                        @if (!string.IsNullOrWhiteSpace(tableConfig.FriendlyName))
-                                        {
-                                            <span class="badge bg-info ms-2">@tableConfig.FriendlyName</span>
-                                        }
-                                    </div>
-                                    <span>@(isExpanded ? "▼" : "▶")</span>
+                <div class="table-card @(isExpanded ? "expanded" : "")">
+                    <div class="table-card-header" @onclick="() => ToggleTable(tableKey)">
+                        <div class="table-info">
+                            <span class="expand-icon">@(isExpanded ? "▼" : "▶")</span>
+                            <span class="table-name">@table.SchemaName.@table.TableName</span>
+                            @if (!string.IsNullOrWhiteSpace(tableConfig.FriendlyName))
+                            {
+                                <span class="friendly-name-badge">@tableConfig.FriendlyName</span>
+                            }
+                            <span class="column-count">@table.Columns.Count columns</span>
+                        </div>
+                    </div>
+                    @if (isExpanded)
+                    {
+                        <div class="table-card-body">
+                            <div class="table-config-row">
+                                <div class="config-field">
+                                    <label class="field-label">Friendly Name</label>
+                                    <input type="text" class="form-control" @bind="tableConfig.FriendlyName" placeholder="e.g., Customers" />
+                                </div>
+                                <div class="config-field">
+                                    <label class="field-label">Description</label>
+                                    <input type="text" class="form-control" @bind="tableConfig.Description" placeholder="Describe this table's purpose" />
+                                </div>
+                                <div class="config-field">
+                                    <label class="field-label">Aliases <small>(comma-separated)</small></label>
+                                    <input type="text" class="form-control" @bind="tableConfig.Aliases" placeholder="e.g., Cust, Client" />
                                 </div>
                             </div>
-                            @if (isExpanded)
-                            {
-                                <div class="card-body">
-                                    <div class="row mb-3">
-                                        <div class="col-md-4">
-                                            <label class="form-label">Friendly Name</label>
-                                            <input type="text" class="form-control" @bind="tableConfig.FriendlyName" placeholder="e.g., Customers" />
-                                        </div>
-                                        <div class="col-md-4">
-                                            <label class="form-label">Description</label>
-                                            <input type="text" class="form-control" @bind="tableConfig.Description" placeholder="Describe this table's purpose" />
-                                        </div>
-                                        <div class="col-md-4">
-                                            <label class="form-label">Aliases (comma-separated)</label>
-                                            <input type="text" class="form-control" @bind="tableConfig.Aliases" placeholder="e.g., Cust, Customer, Clients" />
-                                            <small class="text-muted">Separate aliases with commas</small>
-                                        </div>
-                                    </div>
 
-                                    <h5>Columns</h5>
-                                    <table class="table table-sm">
+                            <div class="columns-section">
+                                <h4 class="columns-title">Columns</h4>
+                                <div class="columns-table-wrapper">
+                                    <table class="columns-table">
                                         <thead>
                                             <tr>
-                                                <th>Column Name</th>
+                                                <th>Column</th>
                                                 <th>Type</th>
                                                 <th>Friendly Name</th>
                                                 <th>Description</th>
                                                 <th>Aliases</th>
-                                                <th>PII</th>
-                                                <th>Restricted</th>
+                                                <th class="center-col">PII</th>
+                                                <th class="center-col">Restricted</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -133,8 +111,8 @@ else
                                             {
                                                 var colConfig = GetOrCreateColumnConfig(tableConfig, column.ColumnName);
                                                 <tr>
-                                                    <td><code>@column.ColumnName</code></td>
-                                                    <td><small>@column.DataType</small></td>
+                                                    <td><code class="column-name-code">@column.ColumnName</code></td>
+                                                    <td><span class="data-type">@column.DataType</span></td>
                                                     <td>
                                                         <input type="text" class="form-control form-control-sm" @bind="colConfig.FriendlyName" placeholder="Friendly name" />
                                                     </td>
@@ -142,228 +120,265 @@ else
                                                         <input type="text" class="form-control form-control-sm" @bind="colConfig.Description" placeholder="Description" />
                                                     </td>
                                                     <td>
-                                                        <input type="text" class="form-control form-control-sm" @bind="colConfig.Aliases" placeholder="Alias1, Alias2" title="Separate aliases with commas" />
+                                                        <input type="text" class="form-control form-control-sm" @bind="colConfig.Aliases" placeholder="Aliases" />
                                                     </td>
-                                                    <td>
-                                                        <div class="form-check">
-                                                            <input type="checkbox" class="form-check-input" @bind="colConfig.IsPii" />
-                                                        </div>
+                                                    <td class="center-col">
+                                                        <label class="checkbox-wrapper">
+                                                            <input type="checkbox" @bind="colConfig.IsPii" />
+                                                            <span class="checkmark"></span>
+                                                        </label>
                                                     </td>
-                                                    <td>
-                                                        <div class="form-check">
-                                                            <input type="checkbox" class="form-check-input" @bind="colConfig.IsRestricted" />
-                                                        </div>
+                                                    <td class="center-col">
+                                                        <label class="checkbox-wrapper">
+                                                            <input type="checkbox" @bind="colConfig.IsRestricted" />
+                                                            <span class="checkmark"></span>
+                                                        </label>
                                                     </td>
                                                 </tr>
                                             }
                                         </tbody>
                                     </table>
                                 </div>
-                            }
+                            </div>
                         </div>
                     }
                 </div>
             }
-            else if (activeTab == "joins")
-            {
-                <div class="tab-pane fade show active">
-                    <h3>Join Hints</h3>
-                    <p class="text-muted">Define common joins to help the LLM understand table relationships</p>
-                    
-                    <div class="mb-3">
-                        <button class="btn btn-primary me-2" @onclick="AddJoinHint">
-                            <span>+ Add Join Hint</span>
-                        </button>
-                        <button class="btn btn-secondary" @onclick="RegenerateJoinHints">
-                            <span>🔄 Regenerate from Foreign Keys</span>
-                        </button>
-                    </div>
-
-                    @if (appState.LlmConfiguration.JoinHints.Any())
-                    {
-                        <table class="table">
-                            <thead>
-                                <tr>
-                                    <th>From Table</th>
-                                    <th>From Column</th>
-                                    <th>To Table</th>
-                                    <th>To Column</th>
-                                    <th>Description</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var (hint, index) in appState.LlmConfiguration.JoinHints.Select((h, i) => (h, i)))
-                                {
-                                    <tr>
-                                        <td>
-                                            <select class="form-select form-select-sm" @bind="hint.FromTable">
-                                                <option value="">Select table...</option>
-                                                @foreach (var table in appState.DatabaseSchema!.Tables)
-                                                {
-                                                    <option value="@($"{table.SchemaName}.{table.TableName}")">@table.SchemaName.@table.TableName</option>
-                                                }
-                                            </select>
-                                        </td>
-                                        <td>
-                                            <input type="text" class="form-control form-control-sm" @bind="hint.FromColumn" placeholder="Column" />
-                                        </td>
-                                        <td>
-                                            <select class="form-select form-select-sm" @bind="hint.ToTable">
-                                                <option value="">Select table...</option>
-                                                @foreach (var table in appState.DatabaseSchema!.Tables)
-                                                {
-                                                    <option value="@($"{table.SchemaName}.{table.TableName}")">@table.SchemaName.@table.TableName</option>
-                                                }
-                                            </select>
-                                        </td>
-                                        <td>
-                                            <input type="text" class="form-control form-control-sm" @bind="hint.ToColumn" placeholder="Column" />
-                                        </td>
-                                        <td>
-                                            <input type="text" class="form-control form-control-sm" @bind="hint.Hint" placeholder="Optional hint" />
-                                        </td>
-                                        <td>
-                                            <button class="btn btn-sm btn-danger" @onclick="() => RemoveJoinHint(index)">×</button>
-                                        </td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    }
-                    else
-                    {
-                        <p class="text-muted">No join hints defined yet.</p>
-                    }
-                </div>
-            }
-            else if (activeTab == "filters")
-            {
-                <div class="tab-pane fade show active">
-                    <h3>Required Filters</h3>
-                    <p class="text-muted">Define filters that must always be applied (tenant isolation, soft delete, etc.)</p>
-                    
-                    <button class="btn btn-primary mb-3" @onclick="AddRequiredFilter">
-                        <span>+ Add Required Filter</span>
-                    </button>
-
-                    @if (appState.LlmConfiguration.RequiredFilters.Any())
-                    {
-                        <table class="table">
-                            <thead>
-                                <tr>
-                                    <th>Table</th>
-                                    <th>Column</th>
-                                    <th>Filter Type</th>
-                                    <th>Default Value</th>
-                                    <th>Description</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var (filter, index) in appState.LlmConfiguration.RequiredFilters.Select((f, i) => (f, i)))
-                                {
-                                    <tr>
-                                        <td>
-                                            <select class="form-select form-select-sm" @bind="filter.TableName">
-                                                <option value="">Select table...</option>
-                                                @foreach (var table in appState.DatabaseSchema!.Tables)
-                                                {
-                                                    <option value="@($"{table.SchemaName}.{table.TableName}")">@table.SchemaName.@table.TableName</option>
-                                                }
-                                            </select>
-                                        </td>
-                                        <td>
-                                            <input type="text" class="form-control form-control-sm" @bind="filter.ColumnName" placeholder="Column name" />
-                                        </td>
-                                        <td>
-                                            <select class="form-select form-select-sm" @bind="filter.FilterType">
-                                                <option value="Tenant">Tenant</option>
-                                                <option value="SoftDelete">Soft Delete</option>
-                                                <option value="Custom">Custom</option>
-                                            </select>
-                                        </td>
-                                        <td>
-                                            <input type="text" class="form-control form-control-sm" @bind="filter.DefaultValue" placeholder="e.g., IS NULL, = 0" />
-                                        </td>
-                                        <td>
-                                            <input type="text" class="form-control form-control-sm" @bind="filter.Description" placeholder="Optional description" />
-                                        </td>
-                                        <td>
-                                            <button class="btn btn-sm btn-danger" @onclick="() => RemoveRequiredFilter(index)">×</button>
-                                        </td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    }
-                    else
-                    {
-                        <p class="text-muted">No required filters defined yet.</p>
-                    }
-                </div>
-            }
-            else if (activeTab == "terms")
-            {
-                <div class="tab-pane fade show active">
-                    <h3>Business Terms</h3>
-                    <p class="text-muted">Define business terminology and concepts (e.g., "Submitted grants", "Active customers")</p>
-                    
-                    <button class="btn btn-primary mb-3" @onclick="AddBusinessTerm">
-                        <span>+ Add Business Term</span>
-                    </button>
-
-                    @if (appState.LlmConfiguration.BusinessTerms.Any())
-                    {
-                        @foreach (var (term, index) in appState.LlmConfiguration.BusinessTerms.Select((t, i) => (t, i)))
-                        {
-                            <div class="card mb-3">
-                                <div class="card-body">
-                                    <div class="row">
-                                        <div class="col-md-3">
-                                            <label class="form-label">Term Name</label>
-                                            <input type="text" class="form-control" @bind="term.Name" placeholder="e.g., Submitted Grants" />
-                                        </div>
-                                        <div class="col-md-5">
-                                            <label class="form-label">Definition</label>
-                                            <input type="text" class="form-control" @bind="term.Definition" placeholder="Describe what this term means" />
-                                        </div>
-                                        <div class="col-md-3">
-                                            <label class="form-label">Example (Optional)</label>
-                                            <input type="text" class="form-control" @bind="term.Example" placeholder="e.g., WHERE Status = 'Submitted'" />
-                                        </div>
-                                        <div class="col-md-1 d-flex align-items-end">
-                                            <button class="btn btn-danger" @onclick="() => RemoveBusinessTerm(index)">×</button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        }
-                    }
-                    else
-                    {
-                        <p class="text-muted">No business terms defined yet.</p>
-                    }
-                </div>
-            }
-        </div>
-
-        <div class="mt-4 d-flex gap-2">
-            <button class="btn btn-success" @onclick="SaveConfiguration">Save Configuration</button>
-            <button class="btn btn-secondary" @onclick="LoadConfiguration">Load Configuration</button>
-            <button class="btn btn-outline-secondary" @onclick="ExportConfiguration">Export JSON</button>
-            <button class="btn btn-outline-primary" @onclick="@(() => navigationManager.NavigateTo("/"))">Back to Home</button>
-        </div>
-
-        @if (!string.IsNullOrEmpty(statusMessage))
-        {
-            <div class="alert alert-info mt-3">@statusMessage</div>
         }
-        @if (!string.IsNullOrEmpty(errorMessage))
+        else if (activeTab == "joins")
         {
-            <div class="alert alert-danger mt-3">@errorMessage</div>
+            <div class="section-header">
+                <div>
+                    <h3>Join Hints</h3>
+                    <p class="section-description">Define common table joins to help the LLM understand relationships.</p>
+                </div>
+                <div class="section-actions">
+                    <button class="btn btn-outline-secondary btn-sm" @onclick="RegenerateJoinHints">
+                        <span>🔄</span> Regenerate from FKs
+                    </button>
+                    <button class="btn btn-primary btn-sm" @onclick="AddJoinHint">
+                        <span>+</span> Add Join Hint
+                    </button>
+                </div>
+            </div>
+
+            @if (appState.LlmConfiguration.JoinHints.Any())
+            {
+                <div class="data-table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>From Table</th>
+                                <th>From Column</th>
+                                <th>To Table</th>
+                                <th>To Column</th>
+                                <th>Description</th>
+                                <th class="action-col"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var (hint, index) in appState.LlmConfiguration.JoinHints.Select((h, i) => (h, i)))
+                            {
+                                <tr>
+                                    <td>
+                                        <select class="form-select form-select-sm" @bind="hint.FromTable">
+                                            <option value="">Select table...</option>
+                                            @foreach (var table in appState.DatabaseSchema!.Tables)
+                                            {
+                                                <option value="@($"{table.SchemaName}.{table.TableName}")">@table.SchemaName.@table.TableName</option>
+                                            }
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <input type="text" class="form-control form-control-sm" @bind="hint.FromColumn" placeholder="Column" />
+                                    </td>
+                                    <td>
+                                        <select class="form-select form-select-sm" @bind="hint.ToTable">
+                                            <option value="">Select table...</option>
+                                            @foreach (var table in appState.DatabaseSchema!.Tables)
+                                            {
+                                                <option value="@($"{table.SchemaName}.{table.TableName}")">@table.SchemaName.@table.TableName</option>
+                                            }
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <input type="text" class="form-control form-control-sm" @bind="hint.ToColumn" placeholder="Column" />
+                                    </td>
+                                    <td>
+                                        <input type="text" class="form-control form-control-sm" @bind="hint.Hint" placeholder="Optional hint" />
+                                    </td>
+                                    <td class="action-col">
+                                        <button class="btn btn-icon btn-danger-subtle" @onclick="() => RemoveJoinHint(index)" title="Remove">
+                                            <span>×</span>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <div class="empty-list">
+                    <p>No join hints defined yet. Click "Add Join Hint" or "Regenerate from FKs" to get started.</p>
+                </div>
+            }
+        }
+        else if (activeTab == "filters")
+        {
+            <div class="section-header">
+                <div>
+                    <h3>Required Filters</h3>
+                    <p class="section-description">Define filters that must always be applied (tenant isolation, soft delete, etc.)</p>
+                </div>
+                <div class="section-actions">
+                    <button class="btn btn-primary btn-sm" @onclick="AddRequiredFilter">
+                        <span>+</span> Add Filter
+                    </button>
+                </div>
+            </div>
+
+            @if (appState.LlmConfiguration.RequiredFilters.Any())
+            {
+                <div class="data-table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Table</th>
+                                <th>Column</th>
+                                <th>Filter Type</th>
+                                <th>Default Value</th>
+                                <th>Description</th>
+                                <th class="action-col"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var (filter, index) in appState.LlmConfiguration.RequiredFilters.Select((f, i) => (f, i)))
+                            {
+                                <tr>
+                                    <td>
+                                        <select class="form-select form-select-sm" @bind="filter.TableName">
+                                            <option value="">Select table...</option>
+                                            @foreach (var table in appState.DatabaseSchema!.Tables)
+                                            {
+                                                <option value="@($"{table.SchemaName}.{table.TableName}")">@table.SchemaName.@table.TableName</option>
+                                            }
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <input type="text" class="form-control form-control-sm" @bind="filter.ColumnName" placeholder="Column name" />
+                                    </td>
+                                    <td>
+                                        <select class="form-select form-select-sm" @bind="filter.FilterType">
+                                            <option value="Tenant">Tenant</option>
+                                            <option value="SoftDelete">Soft Delete</option>
+                                            <option value="Custom">Custom</option>
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <input type="text" class="form-control form-control-sm" @bind="filter.DefaultValue" placeholder="e.g., IS NULL" />
+                                    </td>
+                                    <td>
+                                        <input type="text" class="form-control form-control-sm" @bind="filter.Description" placeholder="Description" />
+                                    </td>
+                                    <td class="action-col">
+                                        <button class="btn btn-icon btn-danger-subtle" @onclick="() => RemoveRequiredFilter(index)" title="Remove">
+                                            <span>×</span>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <div class="empty-list">
+                    <p>No required filters defined yet. Click "Add Filter" to create one.</p>
+                </div>
+            }
+        }
+        else if (activeTab == "terms")
+        {
+            <div class="section-header">
+                <div>
+                    <h3>Business Terms</h3>
+                    <p class="section-description">Define business terminology and concepts (e.g., "Submitted grants", "Active customers")</p>
+                </div>
+                <div class="section-actions">
+                    <button class="btn btn-primary btn-sm" @onclick="AddBusinessTerm">
+                        <span>+</span> Add Term
+                    </button>
+                </div>
+            </div>
+
+            @if (appState.LlmConfiguration.BusinessTerms.Any())
+            {
+                <div class="terms-grid">
+                    @foreach (var (term, index) in appState.LlmConfiguration.BusinessTerms.Select((t, i) => (t, i)))
+                    {
+                        <div class="term-card">
+                            <button class="term-delete-btn" @onclick="() => RemoveBusinessTerm(index)" title="Remove">×</button>
+                            <div class="term-field">
+                                <label class="field-label">Term Name</label>
+                                <input type="text" class="form-control" @bind="term.Name" placeholder="e.g., Submitted Grants" />
+                            </div>
+                            <div class="term-field">
+                                <label class="field-label">Definition</label>
+                                <input type="text" class="form-control" @bind="term.Definition" placeholder="Describe what this term means" />
+                            </div>
+                            <div class="term-field">
+                                <label class="field-label">Example (Optional)</label>
+                                <input type="text" class="form-control" @bind="term.Example" placeholder="e.g., WHERE Status = 'Submitted'" />
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="empty-list">
+                    <p>No business terms defined yet. Click "Add Term" to create one.</p>
+                </div>
+            }
         }
     </div>
+
+    <div class="action-bar">
+        <div class="action-bar-left">
+            <button class="btn btn-outline-secondary" @onclick="@(() => navigationManager.NavigateTo("/"))">
+                <span>←</span> Back
+            </button>
+        </div>
+        <div class="action-bar-right">
+            <button class="btn btn-outline-secondary" @onclick="LoadConfiguration">
+                <span>📂</span> Load
+            </button>
+            <button class="btn btn-outline-secondary" @onclick="ExportConfiguration">
+                <span>📤</span> Export JSON
+            </button>
+            <button class="btn btn-success" @onclick="SaveConfiguration">
+                <span>💾</span> Save Configuration
+            </button>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(statusMessage))
+    {
+        <div class="alert alert-success mt-3">
+            <span class="alert-icon">✓</span>
+            @statusMessage
+        </div>
+    }
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger mt-3">
+            <span class="alert-icon">⚠️</span>
+            @errorMessage
+        </div>
+    }
 }
 
 @code {
@@ -392,6 +407,8 @@ else
                 if (config != null)
                 {
                     appState.LlmConfiguration = config;
+                    appState.ConfigurationSaved = true;
+                    appState.NotifyStateChanged();
                 }
             }
             catch
@@ -533,6 +550,10 @@ else
             var json = JsonSerializer.Serialize(appState.LlmConfiguration, options);
             await File.WriteAllTextAsync(appState.ConfigSaveFilePath, json);
             
+            appState.ConfigurationSaved = true;
+            appState.RefreshFileStatus();
+            appState.NotifyStateChanged();
+            
             statusMessage = $"Configuration saved to {appState.ConfigSaveFilePath}";
             errorMessage = string.Empty;
         }
@@ -556,6 +577,9 @@ else
                 if (config != null)
                 {
                     appState.LlmConfiguration = config;
+                    appState.ConfigurationSaved = true;
+                    appState.RefreshFileStatus();
+                    appState.NotifyStateChanged();
                     InitializeConfiguration();
                     statusMessage = "Configuration loaded successfully";
                     errorMessage = string.Empty;
@@ -601,3 +625,536 @@ else
         }
     }
 }
+
+<style>
+    /* Page Header */
+    .page-header {
+        margin-bottom: 1.5rem;
+    }
+    
+    .page-title {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: #1e293b;
+        margin: 0 0 0.5rem 0;
+    }
+    
+    .page-description {
+        color: #64748b;
+        margin: 0;
+    }
+    
+    /* Empty State */
+    .empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+        background: #ffffff;
+        border-radius: 0.75rem;
+        border: 1px solid #e2e8f0;
+    }
+    
+    .empty-state-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+    }
+    
+    .empty-state h2 {
+        color: #1e293b;
+        margin-bottom: 0.5rem;
+    }
+    
+    .empty-state p {
+        color: #64748b;
+        margin-bottom: 1.5rem;
+    }
+    
+    /* Tabs */
+    .config-tabs {
+        display: flex;
+        gap: 0.25rem;
+        background: #ffffff;
+        padding: 0.375rem;
+        border-radius: 0.75rem;
+        border: 1px solid #e2e8f0;
+        margin-bottom: 1.5rem;
+    }
+    
+    .tab-button {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.625rem 1rem;
+        border: none;
+        background: transparent;
+        border-radius: 0.5rem;
+        color: #64748b;
+        font-weight: 500;
+        font-size: 0.875rem;
+        cursor: pointer;
+        transition: all 0.15s ease;
+    }
+    
+    .tab-button:hover {
+        background: #f1f5f9;
+        color: #1e293b;
+    }
+    
+    .tab-button.active {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        color: #ffffff;
+        box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+    }
+    
+    .tab-icon {
+        font-size: 1rem;
+    }
+    
+    /* Section Header */
+    .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 1.5rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+    
+    .section-header h3 {
+        font-size: 1.125rem;
+        font-weight: 600;
+        color: #1e293b;
+        margin: 0 0 0.25rem 0;
+    }
+    
+    .section-description {
+        color: #64748b;
+        font-size: 0.875rem;
+        margin: 0;
+    }
+    
+    .section-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+    
+    /* Table Cards */
+    .table-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.75rem;
+        margin-bottom: 0.75rem;
+        overflow: hidden;
+        transition: box-shadow 0.15s ease;
+    }
+    
+    .table-card.expanded {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    }
+    
+    .table-card-header {
+        padding: 0.875rem 1rem;
+        cursor: pointer;
+        background: #f8fafc;
+        border-bottom: 1px solid transparent;
+        transition: background 0.15s ease;
+    }
+    
+    .table-card.expanded .table-card-header {
+        border-bottom-color: #e2e8f0;
+    }
+    
+    .table-card-header:hover {
+        background: #f1f5f9;
+    }
+    
+    .table-info {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    
+    .expand-icon {
+        color: #94a3b8;
+        font-size: 0.75rem;
+        width: 1rem;
+    }
+    
+    .table-name {
+        font-weight: 600;
+        color: #1e293b;
+        font-family: 'Consolas', 'Monaco', monospace;
+    }
+    
+    .friendly-name-badge {
+        background: #dbeafe;
+        color: #1d4ed8;
+        font-size: 0.75rem;
+        padding: 0.125rem 0.5rem;
+        border-radius: 0.25rem;
+        font-weight: 500;
+    }
+    
+    .column-count {
+        color: #94a3b8;
+        font-size: 0.75rem;
+        margin-left: auto;
+    }
+    
+    .table-card-body {
+        padding: 1.25rem;
+    }
+    
+    .table-config-row {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    @@media (max-width: 768px) {
+        .table-config-row {
+            grid-template-columns: 1fr;
+        }
+    }
+    
+    .config-field {
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .field-label {
+        font-size: 0.8125rem;
+        font-weight: 600;
+        color: #374151;
+        margin-bottom: 0.375rem;
+    }
+    
+    .field-label small {
+        font-weight: 400;
+        color: #94a3b8;
+    }
+    
+    /* Columns Table */
+    .columns-section {
+        margin-top: 1rem;
+    }
+    
+    .columns-title {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: #1e293b;
+        margin: 0 0 0.75rem 0;
+    }
+    
+    .columns-table-wrapper {
+        overflow-x: auto;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.5rem;
+    }
+    
+    .columns-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.875rem;
+    }
+    
+    .columns-table th {
+        background: #f8fafc;
+        padding: 0.625rem 0.75rem;
+        text-align: left;
+        font-weight: 600;
+        color: #475569;
+        border-bottom: 1px solid #e2e8f0;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.025em;
+    }
+    
+    .columns-table td {
+        padding: 0.5rem 0.75rem;
+        border-bottom: 1px solid #f1f5f9;
+        vertical-align: middle;
+    }
+    
+    .columns-table tr:last-child td {
+        border-bottom: none;
+    }
+    
+    .columns-table .center-col {
+        text-align: center;
+        width: 80px;
+    }
+    
+    .column-name-code {
+        font-family: 'Consolas', 'Monaco', monospace;
+        font-size: 0.8125rem;
+        background: #f1f5f9;
+        padding: 0.125rem 0.375rem;
+        border-radius: 0.25rem;
+        color: #1e293b;
+    }
+    
+    .data-type {
+        color: #64748b;
+        font-size: 0.75rem;
+    }
+    
+    /* Custom Checkbox */
+    .checkbox-wrapper {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+    }
+    
+    .checkbox-wrapper input[type="checkbox"] {
+        width: 1.125rem;
+        height: 1.125rem;
+        border: 2px solid #cbd5e1;
+        border-radius: 0.25rem;
+        cursor: pointer;
+        accent-color: #3b82f6;
+    }
+    
+    .checkbox-wrapper input[type="checkbox"]:checked {
+        border-color: #3b82f6;
+    }
+    
+    /* Data Tables */
+    .data-table-wrapper {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.75rem;
+        overflow: hidden;
+    }
+    
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    .data-table th {
+        background: #f8fafc;
+        padding: 0.75rem 1rem;
+        text-align: left;
+        font-weight: 600;
+        color: #475569;
+        border-bottom: 1px solid #e2e8f0;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.025em;
+    }
+    
+    .data-table td {
+        padding: 0.625rem 1rem;
+        border-bottom: 1px solid #f1f5f9;
+    }
+    
+    .data-table tr:last-child td {
+        border-bottom: none;
+    }
+    
+    .data-table .action-col {
+        width: 50px;
+        text-align: center;
+    }
+    
+    .btn-icon {
+        width: 2rem;
+        height: 2rem;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 0.375rem;
+        border: none;
+        font-size: 1.25rem;
+        line-height: 1;
+    }
+    
+    .btn-danger-subtle {
+        background: #fee2e2;
+        color: #dc2626;
+    }
+    
+    .btn-danger-subtle:hover {
+        background: #fecaca;
+    }
+    
+    /* Empty List */
+    .empty-list {
+        background: #f8fafc;
+        border: 1px dashed #e2e8f0;
+        border-radius: 0.5rem;
+        padding: 2rem;
+        text-align: center;
+    }
+    
+    .empty-list p {
+        color: #64748b;
+        margin: 0;
+    }
+    
+    /* Terms Grid */
+    .terms-grid {
+        display: grid;
+        gap: 1rem;
+    }
+    
+    .term-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.75rem;
+        padding: 1rem;
+        position: relative;
+        display: grid;
+        grid-template-columns: 1fr 2fr 1fr;
+        gap: 1rem;
+    }
+    
+    @@media (max-width: 768px) {
+        .term-card {
+            grid-template-columns: 1fr;
+        }
+    }
+    
+    .term-delete-btn {
+        position: absolute;
+        top: 0.5rem;
+        right: 0.5rem;
+        width: 1.5rem;
+        height: 1.5rem;
+        border: none;
+        background: #fee2e2;
+        color: #dc2626;
+        border-radius: 0.25rem;
+        cursor: pointer;
+        font-size: 1rem;
+        line-height: 1;
+    }
+    
+    .term-delete-btn:hover {
+        background: #fecaca;
+    }
+    
+    .term-field {
+        display: flex;
+        flex-direction: column;
+    }
+    
+    /* Action Bar */
+    .action-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem 0;
+        margin-top: 1.5rem;
+        border-top: 1px solid #e2e8f0;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+    
+    .action-bar-left,
+    .action-bar-right {
+        display: flex;
+        gap: 0.5rem;
+    }
+    
+    /* Buttons */
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.375rem;
+        font-weight: 500;
+        border-radius: 0.5rem;
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+        transition: all 0.15s ease;
+        border: 1px solid transparent;
+        cursor: pointer;
+    }
+    
+    .btn-sm {
+        padding: 0.375rem 0.75rem;
+        font-size: 0.8125rem;
+    }
+    
+    .btn-primary {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        color: #ffffff;
+        border: none;
+    }
+    
+    .btn-primary:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+    }
+    
+    .btn-success {
+        background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+        color: #ffffff;
+        border: none;
+    }
+    
+    .btn-success:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(34, 197, 94, 0.3);
+    }
+    
+    .btn-outline-secondary {
+        background: #ffffff;
+        color: #64748b;
+        border: 1px solid #e2e8f0;
+    }
+    
+    .btn-outline-secondary:hover {
+        background: #f8fafc;
+        color: #1e293b;
+        border-color: #cbd5e1;
+    }
+    
+    /* Form Controls */
+    .form-control, .form-select {
+        border: 1px solid #e2e8f0;
+        border-radius: 0.375rem;
+        padding: 0.5rem 0.75rem;
+        font-size: 0.875rem;
+        transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        outline: none;
+    }
+    
+    .form-control-sm, .form-select-sm {
+        padding: 0.375rem 0.5rem;
+        font-size: 0.8125rem;
+    }
+    
+    /* Alerts */
+    .alert {
+        padding: 0.75rem 1rem;
+        border-radius: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .alert-success {
+        background: #dcfce7;
+        color: #166534;
+        border: 1px solid #bbf7d0;
+    }
+    
+    .alert-danger {
+        background: #fee2e2;
+        color: #991b1b;
+        border: 1px solid #fecaca;
+    }
+    
+    .alert-icon {
+        font-size: 1rem;
+    }
+</style>

@@ -5,11 +5,13 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+    <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+    <DockerfileContext>..\</DockerfileContext>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\QueryGenerator\QueryGenerator.csproj" />
     <ProjectReference Include="..\AvnDataGenie\AvnDataGenie.csproj" />
+    <ProjectReference Include="..\QueryGenerator\QueryGenerator.csproj" />
     <ProjectReference Include="..\ServiceDefaults\ServiceDefaults.csproj" />
   </ItemGroup>
 

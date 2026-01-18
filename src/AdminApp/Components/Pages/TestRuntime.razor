@@ -1,141 +1,614 @@
 @page "/testruntime"
 @inject AvnDataGenie.Generator DataGenerator
+@inject AppState appState
 @inject IJSRuntime JSRuntime
 @inject AppState appState
 @inject NavigationManager navigationManager
 @using Markdig
 @using Markdig.SyntaxHighlighting
+@using System.Text.Json
+
+@rendermode InteractiveServer
 
 <PageTitle>Test Runtime - AvnDataGenie</PageTitle>
 
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-12">
-            <h3 class="mb-4">Test Runtime</h3>
-        </div>
+<div class="page-header">
+    <div class="page-header-content">
+        <h1 class="page-title">Test Your Configuration</h1>
+        <p class="page-description">Generate SQL queries from natural language to verify your schema and configuration are working correctly.</p>
     </div>
+</div>
 
-    <div class="row">
-        <!-- Configuration Section -->
-        <div class="col-lg-6 mb-4">
+@if (!IsConfigurationReady)
+{
+    <div class="setup-required-card">
+        <div class="setup-icon">⚠️</div>
+        <h3>Configuration Required</h3>
+        <p>Please complete the setup steps before testing. You need both a database schema and LLM configuration.</p>
+        <div class="setup-status">
+            <div class="status-item @(appState.HasSchema ? "complete" : "pending")">
+                <span class="status-icon">@(appState.HasSchema ? "✓" : "○")</span>
+                <span>Database Schema</span>
+            </div>
+            <div class="status-item @(appState.HasConfiguration ? "complete" : "pending")">
+                <span class="status-icon">@(appState.HasConfiguration ? "✓" : "○")</span>
+                <span>LLM Configuration</span>
+            </div>
+        </div>
+        <a href="" class="btn btn-primary">
+            <span>🔗</span> Go to Setup
+        </a>
+    </div>
+}
+else
+{
+    <div class="test-layout">
+        <!-- Query Input Section -->
+        <div class="query-section">
             <div class="card">
                 <div class="card-header">
-                    <h5 class="mb-0">Configuration</h5>
+                    <h2 class="card-title">
+                        <span class="card-icon">💬</span>
+                        Natural Language Query
+                    </h2>
                 </div>
                 <div class="card-body">
-                    <div class="mb-3">
-                        <label for="databaseSchema" class="form-label">
-                            <i class="bi bi-database"></i> Database Schema
-                        </label>
-                        <textarea class="form-control font-monospace small" 
-                                  id="databaseSchema" 
-                                  rows="8" 
-                                  readonly 
-                                  style="resize: vertical; background-color: #f8f9fa;">@databaseSchema</textarea>
-                    </div>
-                    <div class="mb-0">
-                        <label for="llmConfig" class="form-label">
-                            <i class="bi bi-gear"></i> LLM Configuration
-                        </label>
-                        <textarea class="form-control font-monospace small" 
-                                  id="llmConfig" 
-                                  rows="8" 
-                                  readonly 
-                                  style="resize: vertical; background-color: #f8f9fa;">@llmConfig</textarea>
+                    <textarea class="form-control query-input" 
+                              rows="4" 
+                              @bind="NaturalLanguageInput" 
+                              placeholder="Describe what data you want to retrieve...
+
+Example: Show me the top 10 customers by total order value this year"></textarea>
+                    
+                    <div class="query-actions">
+                        <button class="btn btn-primary btn-lg" @onclick="GenerateSQL" disabled="@IsGenerating">
+                            @if (IsGenerating)
+                            {
+                                <span class="spinner"></span>
+                                <span>Generating...</span>
+                            }
+                            else
+                            {
+                                <span class="btn-icon">⚡</span>
+                                <span>Generate SQL</span>
+                            }
+                        </button>
+                        
+                        <button class="btn btn-outline-secondary" @onclick="ToggleAdvanced">
+                            <span class="btn-icon">@(showAdvanced ? "▼" : "▶")</span>
+                            <span>@(showAdvanced ? "Hide" : "Show") Configuration</span>
+                        </button>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Query Generation Section -->
-        <div class="col-lg-6 mb-4">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0">Query Generation</h5>
-                </div>
-                <div class="card-body">
-                    <div class="mb-3">
-                        <label for="naturalLanguageInput" class="form-label">
-                            <i class="bi bi-chat-text"></i> Natural Language Query
-                        </label>
-                        <textarea class="form-control" 
-                                  id="naturalLanguageInput" 
-                                  rows="4" 
-                                  @bind="NaturalLanguageInput" 
-                                  placeholder="Describe your data query in plain English...
-
-Example: Show me all customers who placed orders in the last 30 days"
-                                  style="resize: vertical;"></textarea>
+            @if (showAdvanced)
+            {
+                <div class="advanced-section">
+                    <div class="config-panels">
+                        <div class="config-panel">
+                            <div class="config-panel-header">
+                                <span class="config-icon">🗄️</span>
+                                <span class="config-label">Database Schema</span>
+                                <span class="config-source @(useCustomSchema ? "custom" : "default")">
+                                    @(useCustomSchema ? "Custom" : "From Setup")
+                                </span>
+                            </div>
+                            <textarea class="form-control config-textarea" 
+                                      rows="10" 
+                                      @bind="databaseSchema"
+                                      @oninput="OnSchemaChanged"></textarea>
+                        </div>
+                        <div class="config-panel">
+                            <div class="config-panel-header">
+                                <span class="config-icon">⚙️</span>
+                                <span class="config-label">LLM Configuration</span>
+                                <span class="config-source @(useCustomConfig ? "custom" : "default")">
+                                    @(useCustomConfig ? "Custom" : "From Setup")
+                                </span>
+                            </div>
+                            <textarea class="form-control config-textarea" 
+                                      rows="10" 
+                                      @bind="llmConfig"
+                                      @oninput="OnConfigChanged"></textarea>
+                        </div>
                     </div>
-                    <button class="btn btn-primary btn-lg w-100" @onclick="GenerateSQL" disabled="@IsGenerating">
-                        @if (IsGenerating)
-                        {
-                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                            <text>Generating...</text>
-                        }
-                        else
-                        {
-                            <i class="bi bi-magic me-2"></i>
-                            <text>Generate SQL</text>
-                        }
-                    </button>
+                    <div class="config-actions">
+                        <button class="btn btn-outline-secondary btn-sm" @onclick="ResetToDefaults" disabled="@(!useCustomSchema && !useCustomConfig)">
+                            <span>↺</span> Reset to Setup Values
+                        </button>
+                        <button class="btn btn-outline-secondary btn-sm" @onclick="LoadFromFiles">
+                            <span>📂</span> Load from Files
+                        </button>
+                    </div>
                 </div>
-            </div>
+            }
         </div>
-    </div>
 
-    @if (!string.IsNullOrEmpty(GeneratedSQLHtml))
-    {
-        <div class="row">
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">
-                            <i class="bi bi-code-square"></i> Generated SQL
-                        </h5>
-                        <div>
-                            <button class="btn btn-outline-secondary btn-sm me-2" @onclick="CopyToClipboard">
-                                <i class="bi bi-clipboard"></i> Copy
+        <!-- Results Section -->
+        <div class="results-section">
+            @if (!string.IsNullOrEmpty(GeneratedSQLHtml))
+            {
+                <div class="card result-card">
+                    <div class="card-header">
+                        <h2 class="card-title">
+                            <span class="card-icon">📝</span>
+                            Generated SQL
+                        </h2>
+                        <div class="header-actions">
+                            <button class="btn btn-outline-secondary btn-sm" @onclick="CopyToClipboard">
+                                <span>📋</span> Copy
                             </button>
                             <button class="btn btn-primary btn-sm" @onclick="ExecuteResults">
-                                <i class="bi bi-play-fill"></i> Execute
+                                <span>▶️</span> Execute Statement
                             </button>
                         </div>
                     </div>
-                    <div class="card-body p-0">
+                    <div class="card-body result-body">
                         <div class="markdown-content">
                             @((MarkupString)GeneratedSQLHtml)
                         </div>
                     </div>
                 </div>
-            </div>
+            }
+            else
+            {
+                <div class="empty-results">
+                    <div class="empty-icon">🔍</div>
+                    <h3>No Results Yet</h3>
+                    <p>Enter a natural language query above and click "Generate SQL" to see the results.</p>
+                </div>
+            }
         </div>
+    </div>
+}
+
+<style>
+    .page-header {
+        margin-bottom: 2rem;
     }
-</div>
+    
+    .page-title {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: #1e293b;
+        margin: 0 0 0.5rem 0;
+    }
+    
+    .page-description {
+        color: #64748b;
+        margin: 0;
+        font-size: 1rem;
+    }
+    
+    /* Setup Required Card */
+    .setup-required-card {
+        background: #fffbeb;
+        border: 1px solid #fcd34d;
+        border-radius: 0.75rem;
+        padding: 2rem;
+        text-align: center;
+        max-width: 500px;
+    }
+    
+    .setup-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+    }
+    
+    .setup-required-card h3 {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #92400e;
+        margin: 0 0 0.5rem 0;
+    }
+    
+    .setup-required-card p {
+        color: #a16207;
+        margin: 0 0 1.5rem 0;
+    }
+    
+    .setup-status {
+        display: flex;
+        justify-content: center;
+        gap: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .status-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.875rem;
+    }
+    
+    .status-item.complete {
+        color: #16a34a;
+    }
+    
+    .status-item.pending {
+        color: #9ca3af;
+    }
+    
+    .status-icon {
+        font-weight: 600;
+    }
+    
+    /* Test Layout */
+    .test-layout {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+    
+    /* Cards */
+    .card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.75rem;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+    
+    .card-header {
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid #e2e8f0;
+        background: #f8fafc;
+        border-radius: 0.75rem 0.75rem 0 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .header-actions {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+    }
+    
+    .card-title {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #1e293b;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .card-icon {
+        font-size: 1.125rem;
+    }
+    
+    .card-body {
+        padding: 1.5rem;
+    }
+    
+    /* Query Input */
+    .query-input {
+        font-size: 1rem;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        resize: vertical;
+        min-height: 100px;
+    }
+    
+    .query-input:focus {
+        background: #ffffff;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        outline: none;
+    }
+    
+    .query-input::placeholder {
+        color: #94a3b8;
+    }
+    
+    .query-actions {
+        display: flex;
+        gap: 0.75rem;
+        margin-top: 1rem;
+        flex-wrap: wrap;
+    }
+    
+    /* Buttons */
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-weight: 500;
+        border-radius: 0.5rem;
+        transition: all 0.15s ease;
+        cursor: pointer;
+    }
+    
+    .btn-lg {
+        padding: 0.75rem 1.5rem;
+        font-size: 1rem;
+    }
+    
+    .btn-sm {
+        padding: 0.375rem 0.75rem;
+        font-size: 0.8125rem;
+    }
+    
+    .btn-icon {
+        font-size: 1rem;
+    }
+    
+    .btn-primary {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        border: none;
+        color: #ffffff;
+        box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+    }
+    
+    .btn-primary:hover:not(:disabled) {
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(59, 130, 246, 0.4);
+    }
+    
+    .btn-primary:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+    
+    .btn-outline-secondary {
+        background: transparent;
+        border: 1px solid #e2e8f0;
+        color: #64748b;
+        padding: 0.625rem 1rem;
+    }
+    
+    .btn-outline-secondary:hover {
+        background: #f8fafc;
+        border-color: #cbd5e1;
+        color: #475569;
+    }
+    
+    .spinner {
+        width: 1rem;
+        height: 1rem;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-top-color: #ffffff;
+        border-radius: 50%;
+        animation: spin 0.6s linear infinite;
+    }
+    
+    @@keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+    
+    /* Advanced Section */
+    .advanced-section {
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid #e2e8f0;
+    }
+    
+    .config-panels {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+    }
+    
+    @@media (max-width: 768px) {
+        .config-panels {
+            grid-template-columns: 1fr;
+        }
+    }
+    
+    .config-panel {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .config-panel-header {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .config-icon {
+        font-size: 0.875rem;
+    }
+    
+    .config-label {
+        font-size: 0.8125rem;
+        font-weight: 600;
+        color: #374151;
+    }
+    
+    .config-source {
+        margin-left: auto;
+        font-size: 0.6875rem;
+        font-weight: 500;
+        padding: 0.125rem 0.5rem;
+        border-radius: 0.25rem;
+    }
+    
+    .config-source.default {
+        background: #dbeafe;
+        color: #1d4ed8;
+    }
+    
+    .config-source.custom {
+        background: #fef3c7;
+        color: #92400e;
+    }
+    
+    .config-textarea {
+        font-family: 'Consolas', 'Monaco', monospace;
+        font-size: 0.75rem;
+        background: #1e293b;
+        color: #e2e8f0;
+        border: 1px solid #334155;
+        border-radius: 0.5rem;
+        padding: 0.75rem;
+        resize: vertical;
+    }
+    
+    .config-textarea:focus {
+        border-color: #3b82f6;
+        outline: none;
+    }
+    
+    .config-actions {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 0.75rem;
+    }
+    
+    /* Results */
+    .result-card {
+        border-color: #22c55e;
+    }
+    
+    .result-card .card-header {
+        background: #f0fdf4;
+        border-color: #bbf7d0;
+    }
+    
+    .result-body {
+        padding: 0;
+    }
+    
+    .markdown-content {
+        background: #1e293b;
+        border-radius: 0 0 0.75rem 0.75rem;
+        overflow: hidden;
+    }
+    
+    .markdown-content pre {
+        margin: 0;
+        padding: 1.5rem;
+        background: transparent;
+    }
+    
+    .markdown-content code {
+        font-family: 'Consolas', 'Monaco', monospace;
+        font-size: 0.875rem;
+        line-height: 1.6;
+    }
+    
+    /* Empty State */
+    .empty-results {
+        background: #f8fafc;
+        border: 2px dashed #e2e8f0;
+        border-radius: 0.75rem;
+        padding: 3rem 2rem;
+        text-align: center;
+    }
+    
+    .empty-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+    
+    .empty-results h3 {
+        font-size: 1.125rem;
+        font-weight: 600;
+        color: #64748b;
+        margin: 0 0 0.5rem 0;
+    }
+    
+    .empty-results p {
+        color: #94a3b8;
+        margin: 0;
+        font-size: 0.875rem;
+    }
+</style>
 
 @code {
-
     private string databaseSchema = string.Empty;
     private string llmConfig = string.Empty;
+    private bool showAdvanced = false;
+    private bool useCustomSchema = false;
+    private bool useCustomConfig = false;
+    
     private static readonly MarkdownPipeline pipeline = new MarkdownPipelineBuilder()
         .UseSyntaxHighlighting()
         .Build();
 
-    public string NaturalLanguageInput { get; set; } = """
-			show me the top artists for 2024 by sales volume
-			""";
-			
+    public string NaturalLanguageInput { get; set; } = string.Empty;
     public string GeneratedSQL { get; set; } = string.Empty;
     public string GeneratedSQLHtml { get; set; } = string.Empty;
     public bool IsGenerating { get; set; } = false;
 
-    protected override Task OnInitializedAsync()
-    {
-        // load test data from the JSON files on disk
-        databaseSchema = new StreamReader("database_schema.json").ReadToEnd();
-        llmConfig = new StreamReader("llm_config.json").ReadToEnd();
+    private bool IsConfigurationReady => appState.HasSchema && appState.HasConfiguration;
 
-        return base.OnInitializedAsync();
+    protected override void OnInitialized()
+    {
+        // Load from AppState (setup wizard values)
+        LoadFromAppState();
+    }
+
+    private void LoadFromAppState()
+    {
+        if (appState.HasSchema)
+        {
+            databaseSchema = appState.SchemaJson;
+        }
+        
+        if (appState.HasConfiguration)
+        {
+            var options = new JsonSerializerOptions 
+            { 
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                WriteIndented = true
+            };
+            llmConfig = JsonSerializer.Serialize(appState.LlmConfiguration, options);
+        }
+        
+        useCustomSchema = false;
+        useCustomConfig = false;
+    }
+
+    private void ToggleAdvanced()
+    {
+        showAdvanced = !showAdvanced;
+    }
+
+    private void OnSchemaChanged(ChangeEventArgs e)
+    {
+        useCustomSchema = true;
+    }
+
+    private void OnConfigChanged(ChangeEventArgs e)
+    {
+        useCustomConfig = true;
+    }
+
+    private void ResetToDefaults()
+    {
+        LoadFromAppState();
+    }
+
+    private void LoadFromFiles()
+    {
+        try
+        {
+            if (File.Exists("database_schema.json"))
+            {
+                databaseSchema = File.ReadAllText("database_schema.json");
+                useCustomSchema = true;
+            }
+            
+            if (File.Exists("llm_config.json"))
+            {
+                llmConfig = File.ReadAllText("llm_config.json");
+                useCustomConfig = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            // Handle file read errors silently for now
+            Console.WriteLine($"Error loading files: {ex.Message}");
+        }
     }
 
     private async Task GenerateSQL(MouseEventArgs args)
@@ -155,24 +628,23 @@ Example: Show me all customers who placed orders in the last 30 days"
             
             // Convert SQL to markdown with syntax highlighting - only add code fences if not already present
             string markdownContent = GeneratedSQL.StartsWith("```")
-								? GeneratedSQL
-								: $"```sql\n{GeneratedSQL}\n```";
+                                ? GeneratedSQL
+                                : $"```sql\n{GeneratedSQL}\n```";
             GeneratedSQLHtml = Markdown.ToHtml(markdownContent, pipeline);
+
+            // Track test completion
+            appState.TestCompleted = true;
+            appState.LastTestRun = DateTime.Now;
+            appState.LastTestQueryCount = (appState.LastTestQueryCount ?? 0) + 1;
+            appState.NotifyStateChanged();
         }
         catch (Exception ex)
         {
             GeneratedSQL = $"-- Error generating SQL:\n-- {ex.Message}";
             
-            // Handle error case - check for fences too
-            string errorMarkdown;
-            if (GeneratedSQL.StartsWith("```"))
-            {
-                errorMarkdown = GeneratedSQL;
-            }
-            else
-            {
-                errorMarkdown = $"```sql\n{GeneratedSQL}\n```";
-            }
+            string errorMarkdown = GeneratedSQL.StartsWith("```")
+                ? GeneratedSQL
+                : $"```sql\n{GeneratedSQL}\n```";
             GeneratedSQLHtml = Markdown.ToHtml(errorMarkdown, pipeline);
         }
         finally
@@ -190,7 +662,7 @@ Example: Show me all customers who placed orders in the last 30 days"
         }
         catch
         {
-            // Fallback for older browsers or when clipboard API is not available
+            // Fallback for older browsers
             await JSRuntime.InvokeVoidAsync("fallbackCopyToClipboard", GeneratedSQL);
         }
     }
