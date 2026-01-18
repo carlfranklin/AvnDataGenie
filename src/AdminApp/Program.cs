@@ -12,8 +12,6 @@ builder.Services.AddRazorComponents()
 
 builder.Services.AddScoped<AppState>();
 
-builder.Services.AddSingleton<QueryGenerator.Generator>();
-
 Console.WriteLine("Configuring AvnDataGenie integration...");
 
 // Test AvnDataGenie integration
@@ -36,7 +34,7 @@ builder.Services.AddAvnDataGenie(builder.Configuration, config =>
 	}
 	else
 	{	
-		config.LlmEndpoint = builder.Configuration["connectionstrings:test-model"]; // Example endpoint for Ollama
+		config.LlmEndpoint = builder.Configuration["connectionstrings:test-model"] ?? "http://localhost:11434"; // Example endpoint for Ollama
 		config.ModelName = "gemma3:1b";
 	}
 	
@@ -50,6 +48,18 @@ builder.Services.AddAvnDataGenie(builder.Configuration, config =>
 });
 
 var app = builder.Build();
+
+// Log startup for telemetry verification
+var logger = app.Logger;
+logger.LogInformation("AdminApp starting up - telemetry should be visible in Aspire Dashboard");
+logger.LogInformation("Environment: {Environment}", app.Environment.EnvironmentName);
+
+// Check both configuration and environment variable
+var otlpFromConfig = builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"];
+var otlpFromEnv = Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT");
+logger.LogInformation("OTEL_EXPORTER_OTLP_ENDPOINT from Configuration: {ConfigEndpoint}", otlpFromConfig ?? "NOT SET");
+logger.LogInformation("OTEL_EXPORTER_OTLP_ENDPOINT from Environment: {EnvEndpoint}", otlpFromEnv ?? "NOT SET");
+logger.LogInformation("OTEL_SERVICE_NAME: {ServiceName}", Environment.GetEnvironmentVariable("OTEL_SERVICE_NAME") ?? "NOT SET");
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())

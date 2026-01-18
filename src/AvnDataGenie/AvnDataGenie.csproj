@@ -20,4 +20,8 @@
     <PackageReference Include="OllamaSharp" Version="5.4.12" />
   </ItemGroup>
 
+	<ItemGroup>
+		<ProjectReference Include="..\QueryGenerator\QueryGenerator.csproj" />
+	</ItemGroup>
+
 </Project>

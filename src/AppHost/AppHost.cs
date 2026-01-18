@@ -9,7 +9,7 @@ var builder = DistributedApplication.CreateBuilder(args);
 
 var adminApp = builder.AddProject<Projects.AdminApp>("admin")
 	.WithExternalHttpEndpoints();
-
+	
 if (!string.IsNullOrEmpty(builder.Configuration["AvnDataGenie:LlmEndpoint"]))
 {
 

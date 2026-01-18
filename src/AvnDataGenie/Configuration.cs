@@ -31,7 +31,7 @@ public class Configuration
 		/// <summary>
 		/// Maximum tokens for the response (helps control response length and speed)
 		/// </summary>
-		public int? MaxTokens { get; set; } = 1000;
+		public int? MaxTokens { get; set; } = 10_000;
 
 		/// <summary>
 		/// Temperature for response randomness (0.0-1.0, lower = more deterministic/faster)

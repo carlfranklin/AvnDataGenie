@@ -1,12 +1,13 @@
 using Azure.AI.Inference;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using OllamaSharp;
 using ChatRole = Microsoft.Extensions.AI.ChatRole;
 
 namespace AvnDataGenie;
 
-public class Generator(IOptions<Configuration> config, IChatClient chatClient)
+public class Generator(IOptions<Configuration> config, IChatClient chatClient, ILogger<Generator> logger)
 {
 	private readonly Configuration _config = config.Value;
 
@@ -51,14 +52,14 @@ public class Generator(IOptions<Configuration> config, IChatClient chatClient)
 			SYSTEMPROMPT = SqlPromptBuilder.CreateSystemPromptFromJson(jsonSchema, llmMetadata);
 			//string filePath = "C:\\Users\\carl\\SystemPrompt.txt";
 			//await File.WriteAllTextAsync(filePath, SYSTEMPROMPT);
+			logger.LogInformation("System prompt generated and cached.");
+			logger.LogDebug("System Prompt: {SystemPrompt}", SYSTEMPROMPT);
 		}
 
 		// Combine all user prompts into a single, structured message for better performance
 		var combinedPrompt = $"""
-			SCHEMA (use these exact names):
-			{jsonSchema}
-
 			{(string.IsNullOrWhiteSpace(llmMetadata) ? "" : $"HINTS:\n{llmMetadata}\n")}
+
 			QUERY: {naturalLanguageQuery}
 
 			Return only T-SQL starting with SELECT.
