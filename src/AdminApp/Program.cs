@@ -20,7 +20,8 @@ Console.WriteLine("Configuring AvnDataGenie integration...");
 builder.Services.AddAvnDataGenie(builder.Configuration, config =>
 {
 
-	Console.WriteLine("Configuring AvnDataGenie with Ollama settings.");
+	if (!string.IsNullOrEmpty(builder.Configuration["connectionstrings:test-model"])) {
+	Console.WriteLine("Configuring AvnDataGenie with local Ollama settings.");
 
 	// You can customize the configuration here if needed
 	config.LlmType = LlmType.Ollama;
@@ -43,6 +44,9 @@ builder.Services.AddAvnDataGenie(builder.Configuration, config =>
 	config.RequestTimeoutSeconds = 60; // Shorter timeout for faster failures
 	config.MaxTokens = 50000; // SQL statements are usually short
 	config.Temperature = 0.1f; // Very low temperature for consistent, deterministic SQL output
+
+	}
+
 });
 
 var app = builder.Build();
