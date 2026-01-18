@@ -2,6 +2,8 @@
 @inject AvnDataGenie.Generator DataGenerator
 @inject AppState appState
 @inject IJSRuntime JSRuntime
+@inject AppState appState
+@inject NavigationManager navigationManager
 @using Markdig
 @using Markdig.SyntaxHighlighting
 @using System.Text.Json
@@ -610,7 +612,10 @@ Example: Show me the top 10 customers by total order value this year"></textarea
         {
             GeneratedSQL = await DataGenerator.GenerateStatementFromNlq(NaturalLanguageInput, databaseSchema, llmConfig);
             
-            // Convert SQL to markdown with syntax highlighting
+            // Store in AppState for SQL Results page
+            appState.SQLString = GeneratedSQL;
+            
+            // Convert SQL to markdown with syntax highlighting - only add code fences if not already present
             string markdownContent = GeneratedSQL.StartsWith("```")
                                 ? GeneratedSQL
                                 : $"```sql\n{GeneratedSQL}\n```";
@@ -649,5 +654,10 @@ Example: Show me the top 10 customers by total order value this year"></textarea
             // Fallback for older browsers
             await JSRuntime.InvokeVoidAsync("fallbackCopyToClipboard", GeneratedSQL);
         }
+    }
+
+    private void ExecuteResults()
+    {
+        navigationManager.NavigateTo("/sqlresults");
     }
 }

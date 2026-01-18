@@ -1,0 +1,199 @@
+@page "/sqlresults"
+@using Microsoft.Data.SqlClient
+@using System.Data
+@inject AppState appState
+@inject NavigationManager navigationManager
+
+@rendermode InteractiveServer
+
+<PageTitle>SQL Results - AvnDataGenie</PageTitle>
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h3 class="mb-4">SQL Query Results</h3>
+        </div>
+    </div>
+
+    @if (!HasSqlString)
+    {
+        <div class="alert alert-warning" role="alert">
+            <i class="bi bi-exclamation-triangle"></i> No SQL query available. Please generate a query first.
+        </div>
+        <button class="btn btn-primary" @onclick="@(() => navigationManager.NavigateTo("/testruntime"))">
+            <i class="bi bi-arrow-left"></i> Go to Test Runtime
+        </button>
+    }
+    else
+    {
+        <div class="row mb-3">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="bi bi-code-square"></i> SQL Query
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <pre class="mb-0" style="background-color: #f8f9fa; padding: 1rem; border-radius: 0.25rem;"><code>@appState.SQLString</code></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mb-3">
+            <div class="col-md-8">
+                <label for="connectionString" class="form-label">Connection String:</label>
+                <input type="text" id="connectionString" class="form-control" @bind="connectionString" />
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+                <button class="btn btn-primary w-100" @onclick="ExecuteQuery" disabled="@isExecuting">
+                    @if (isExecuting)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                        <text>Executing...</text>
+                    }
+                    else
+                    {
+                        <i class="bi bi-play-fill me-2"></i>
+                        <text>Execute Query</text>
+                    }
+                </button>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger" role="alert">
+                <strong>Error:</strong> @errorMessage
+            </div>
+        }
+
+        @if (resultData != null && resultData.Rows.Count > 0)
+        {
+            <div class="row">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">
+                                <i class="bi bi-table"></i> Results (@resultData.Rows.Count rows)
+                            </h5>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
+                                <table class="table table-striped table-hover mb-0">
+                                    <thead>
+                                        <tr>
+                                            @foreach (DataColumn column in resultData.Columns)
+                                            {
+                                                <th>@FormatColumnName(column.ColumnName)</th>
+                                            }
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (DataRow row in resultData.Rows)
+                                        {
+                                            <tr>
+                                                @foreach (DataColumn column in resultData.Columns)
+                                                {
+                                                    <td>@row[column]</td>
+                                                }
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+        else if (executionComplete && (resultData == null || resultData.Rows.Count == 0))
+        {
+            <div class="alert alert-info" role="alert">
+                <i class="bi bi-info-circle"></i> Query executed successfully but returned no results.
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private string connectionString = "Data Source=(localdb)\\MSSQLLocalDB;Initial Catalog=Chinook;Integrated Security=True;Connect Timeout=30;Encrypt=True;Trust Server Certificate=False;Application Intent=ReadWrite;Multi Subnet Failover=False;Command Timeout=30";
+    private DataTable? resultData;
+    private string errorMessage = string.Empty;
+    private bool isExecuting = false;
+    private bool executionComplete = false;
+
+    private bool HasSqlString => !string.IsNullOrWhiteSpace(appState.SQLString);
+
+    protected override void OnInitialized()
+    {
+        if (!HasSqlString)
+        {
+            // No SQL string available, user will be prompted to go back
+        }
+    }
+
+    private async Task ExecuteQuery()
+    {
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            errorMessage = "Please enter a connection string.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(appState.SQLString))
+        {
+            errorMessage = "No SQL query to execute.";
+            return;
+        }
+
+        isExecuting = true;
+        executionComplete = false;
+        errorMessage = string.Empty;
+        resultData = null;
+        StateHasChanged();
+
+        try
+        {
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            using var command = new SqlCommand(appState.SQLString, connection);
+            command.CommandType = CommandType.Text;
+            command.CommandTimeout = 30;
+
+            using var reader = await command.ExecuteReaderAsync();
+            
+            resultData = new DataTable();
+            resultData.Load(reader);
+
+            executionComplete = true;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+            executionComplete = false;
+        }
+        finally
+        {
+            isExecuting = false;
+            StateHasChanged();
+        }
+    }
+
+    private string FormatColumnName(string columnName)
+    {
+        if (string.IsNullOrWhiteSpace(columnName))
+            return columnName;
+
+        // Insert space before capital letters (except the first one)
+        var result = System.Text.RegularExpressions.Regex.Replace(
+            columnName, 
+            "(?<!^)([A-Z])", 
+            " $1"
+        );
+
+        return result;
+    }
+}
