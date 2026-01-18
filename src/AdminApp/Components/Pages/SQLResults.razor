@@ -86,7 +86,7 @@
                                         <tr>
                                             @foreach (DataColumn column in resultData.Columns)
                                             {
-                                                <th>@column.ColumnName</th>
+                                                <th>@FormatColumnName(column.ColumnName)</th>
                                             }
                                         </tr>
                                     </thead>
@@ -180,5 +180,20 @@
             isExecuting = false;
             StateHasChanged();
         }
+    }
+
+    private string FormatColumnName(string columnName)
+    {
+        if (string.IsNullOrWhiteSpace(columnName))
+            return columnName;
+
+        // Insert space before capital letters (except the first one)
+        var result = System.Text.RegularExpressions.Regex.Replace(
+            columnName, 
+            "(?<!^)([A-Z])", 
+            " $1"
+        );
+
+        return result;
     }
 }
