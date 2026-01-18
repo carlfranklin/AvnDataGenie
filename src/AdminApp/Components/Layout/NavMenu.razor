@@ -88,7 +88,97 @@
                 </NavLink>
             </div>
         </div>
-        
+
+        <!-- Configuration Files Status -->
+        <div class="files-section">
+            <div class="section-header">
+                <span class="section-icon">📁</span>
+                <span class="section-title">Configuration Files</span>
+            </div>
+            
+            <!-- Schema File Card -->
+            <div class="file-card @(appState.SchemaFileExists ? "file-ready" : "file-pending")">
+                <div class="file-card-header">
+                    <span class="file-icon">🗄️</span>
+                    <span class="file-label">Database Schema</span>
+                    <span class="file-status-badge @(appState.SchemaFileExists ? "badge-ready" : "badge-pending")">
+                        @(appState.SchemaFileExists ? "Ready" : "Missing")
+                    </span>
+                </div>
+                @if (appState.SchemaFileExists)
+                {
+                    <div class="file-card-details">
+                        <div class="file-detail">
+                            <span class="detail-label">File:</span>
+                            <span class="detail-value file-name" title="@appState.SaveFilePath">@appState.SchemaFileName</span>
+                        </div>
+                        @if (appState.SchemaFileLastModified.HasValue)
+                        {
+                            <div class="file-detail">
+                                <span class="detail-label">Modified:</span>
+                                <span class="detail-value">@appState.SchemaFileLastModified.Value.ToString("MMM dd, HH:mm")</span>
+                            </div>
+                        }
+                        @if (appState.DatabaseSchema != null)
+                        {
+                            <div class="file-detail">
+                                <span class="detail-label">Contains:</span>
+                                <span class="detail-value">@appState.DatabaseSchema.Tables.Count tables</span>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="file-card-empty">
+                        <span class="empty-text">Generate schema from database to get started</span>
+                    </div>
+                }
+            </div>
+
+            <!-- LLM Config File Card -->
+            <div class="file-card @(appState.ConfigFileExists ? "file-ready" : "file-pending")">
+                <div class="file-card-header">
+                    <span class="file-icon">⚙️</span>
+                    <span class="file-label">LLM Configuration</span>
+                    <span class="file-status-badge @(appState.ConfigFileExists ? "badge-ready" : "badge-pending")">
+                        @(appState.ConfigFileExists ? "Ready" : "Missing")
+                    </span>
+                </div>
+                @if (appState.ConfigFileExists)
+                {
+                    <div class="file-card-details">
+                        <div class="file-detail">
+                            <span class="detail-label">File:</span>
+                            <span class="detail-value file-name" title="@appState.ConfigSaveFilePath">@appState.ConfigFileName</span>
+                        </div>
+                        @if (appState.ConfigFileLastModified.HasValue)
+                        {
+                            <div class="file-detail">
+                                <span class="detail-label">Modified:</span>
+                                <span class="detail-value">@appState.ConfigFileLastModified.Value.ToString("MMM dd, HH:mm")</span>
+                            </div>
+                        }
+                        @if (appState.HasConfiguration)
+                        {
+                            <div class="file-detail">
+                                <span class="detail-label">Saved:</span>
+                                <span class="detail-value saved-indicator @(appState.ConfigurationSaved ? "saved" : "unsaved")">
+                                    @(appState.ConfigurationSaved ? "✓ Yes" : "⚠ Unsaved changes")
+                                </span>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="file-card-empty">
+                        <span class="empty-text">Configure and save LLM settings</span>
+                    </div>
+                }
+            </div>
+        </div>
+
         @if (appState.HasSchema && appState.DatabaseSchema != null)
         {
             <!-- Schema Stats -->
@@ -113,13 +203,98 @@
                 </div>
             </div>
         }
+
+        @if (appState.HasConfiguration)
+        {
+            <!-- Config Stats -->
+            <div class="stats-section">
+                <div class="stats-header">
+                    <span class="stats-icon">🔧</span>
+                    <span class="stats-title">LLM Config Summary</span>
+                </div>
+                <div class="config-stats">
+                    <div class="config-stat-row">
+                        <span class="config-stat-label">Table Configs</span>
+                        <span class="config-stat-value">@appState.ConfiguredTablesCount</span>
+                    </div>
+                    <div class="config-stat-row">
+                        <span class="config-stat-label">Join Hints</span>
+                        <span class="config-stat-value">@appState.JoinHintsCount</span>
+                    </div>
+                    <div class="config-stat-row">
+                        <span class="config-stat-label">Required Filters</span>
+                        <span class="config-stat-value">@appState.RequiredFiltersCount</span>
+                    </div>
+                    <div class="config-stat-row">
+                        <span class="config-stat-label">Business Terms</span>
+                        <span class="config-stat-value">@appState.BusinessTermsCount</span>
+                    </div>
+                </div>
+            </div>
+        }
+
+        @if (appState.TestCompleted)
+        {
+            <!-- Test Status -->
+            <div class="stats-section test-section">
+                <div class="stats-header">
+                    <span class="stats-icon">✅</span>
+                    <span class="stats-title">Last Test Run</span>
+                </div>
+                <div class="test-info">
+                    @if (appState.LastTestRun.HasValue)
+                    {
+                        <div class="test-detail">
+                            <span class="test-label">Ran:</span>
+                            <span class="test-value">@appState.LastTestRun.Value.ToString("MMM dd, HH:mm")</span>
+                        </div>
+                    }
+                    @if (appState.LastTestQueryCount.HasValue)
+                    {
+                        <div class="test-detail">
+                            <span class="test-label">Queries:</span>
+                            <span class="test-value">@appState.LastTestQueryCount.Value tested</span>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+
+        <!-- Restart Button -->
+        <div class="restart-section">
+            <button class="restart-button" @onclick="ShowRestartConfirmation" title="Clear all configuration and start over">
+                <span class="restart-icon">🔄</span>
+                <span class="restart-text">Restart Setup</span>
+            </button>
+        </div>
+
+        @if (showRestartConfirmation)
+        {
+            <div class="restart-confirmation">
+                <p class="confirm-text">Clear all configuration?</p>
+                <div class="confirm-options">
+                    <label class="confirm-checkbox">
+                        <input type="checkbox" @bind="deleteFiles" />
+                        <span>Also delete files</span>
+                    </label>
+                </div>
+                <div class="confirm-buttons">
+                    <button class="btn-confirm-yes" @onclick="RestartProcess">Yes, restart</button>
+                    <button class="btn-confirm-no" @onclick="CancelRestart">Cancel</button>
+                </div>
+            </div>
+        }
     </nav>
 </div>
 
 @code {
+    private bool showRestartConfirmation = false;
+    private bool deleteFiles = false;
+
     protected override void OnInitialized()
     {
         appState.OnChange += StateHasChanged;
+        appState.RefreshFileStatus();
     }
 
     public void Dispose()
@@ -132,7 +307,7 @@
         int count = 0;
         if (appState.HasSchema) count = 2; // Connect + Generate done
         if (appState.HasConfiguration && appState.ConfigurationSaved) count = 3;
-        // Step 4 (Test) would be marked complete after testing
+        if (appState.TestCompleted) count = 4;
         return count;
     }
 
@@ -143,7 +318,7 @@
             1 => appState.HasSchema, // If we have schema, connection was made
             2 => appState.HasSchema,
             3 => appState.HasConfiguration && appState.ConfigurationSaved,
-            4 => false, // Test completion would need additional tracking
+            4 => appState.TestCompleted,
             _ => false
         };
     }
@@ -167,6 +342,54 @@
         }
         
         return classes;
+    }
+
+    private void ShowRestartConfirmation()
+    {
+        showRestartConfirmation = true;
+        deleteFiles = false;
+    }
+
+    private void CancelRestart()
+    {
+        showRestartConfirmation = false;
+        deleteFiles = false;
+    }
+
+    private void RestartProcess()
+    {
+        // Delete files if requested
+        if (deleteFiles)
+        {
+            try
+            {
+                if (File.Exists(appState.SaveFilePath))
+                    File.Delete(appState.SaveFilePath);
+                if (File.Exists(appState.ConfigSaveFilePath))
+                    File.Delete(appState.ConfigSaveFilePath);
+            }
+            catch
+            {
+                // Silently ignore file deletion errors
+            }
+        }
+
+        // Clear all state
+        appState.SchemaJson = string.Empty;
+        appState.DatabaseSchema = null;
+        appState.LlmConfiguration = new QueryGenerator.Models.LlmConfiguration();
+        appState.ConfigurationSaved = false;
+        appState.SchemaFileLastModified = null;
+        appState.ConfigFileLastModified = null;
+        appState.TestCompleted = false;
+        appState.LastTestRun = null;
+        appState.LastTestQueryCount = null;
+        
+        appState.RefreshFileStatus();
+        appState.NotifyStateChanged();
+
+        showRestartConfirmation = false;
+        deleteFiles = false;
     }
 }
 

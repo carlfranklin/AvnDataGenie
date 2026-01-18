@@ -270,6 +270,7 @@
                 var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
                 appState.DatabaseSchema = JsonSerializer.Deserialize<DatabaseSchema>(appState.SchemaJson, options);
                 errorMessage = string.Empty;
+                appState.RefreshFileStatus();
                 appState.NotifyStateChanged();
             }
             catch (Exception ex)
@@ -304,7 +305,9 @@
                 File.Delete(appState.SaveFilePath);
                 appState.SchemaJson = string.Empty;
                 appState.DatabaseSchema = null;
+                appState.SchemaFileLastModified = null;
                 errorMessage = string.Empty;
+                appState.RefreshFileStatus();
                 appState.NotifyStateChanged();
             }
             catch (Exception ex)
@@ -352,6 +355,7 @@
             try
             {
                 await File.WriteAllTextAsync(appState.SaveFilePath, appState.SchemaJson);
+                appState.RefreshFileStatus();
                 saveMessage = $"Successfully saved to: {appState.SaveFilePath}";
             }
             catch (Exception ex)
@@ -372,8 +376,11 @@
 
     protected override async Task OnInitializedAsync()
     {
-        // Set a default save file path and load it if it exists
+        // Set default file paths
         appState.SaveFilePath = Path.Combine(Environment.CurrentDirectory, "database_schema.json");
+        appState.ConfigSaveFilePath = Path.Combine(Environment.CurrentDirectory, "llm_config.json");
+        appState.RefreshFileStatus();
+        
         if (File.Exists(appState.SaveFilePath))
             await LoadSchema();
     }

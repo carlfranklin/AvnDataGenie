@@ -551,6 +551,7 @@ else
             await File.WriteAllTextAsync(appState.ConfigSaveFilePath, json);
             
             appState.ConfigurationSaved = true;
+            appState.RefreshFileStatus();
             appState.NotifyStateChanged();
             
             statusMessage = $"Configuration saved to {appState.ConfigSaveFilePath}";
@@ -577,6 +578,7 @@ else
                 {
                     appState.LlmConfiguration = config;
                     appState.ConfigurationSaved = true;
+                    appState.RefreshFileStatus();
                     appState.NotifyStateChanged();
                     InitializeConfiguration();
                     statusMessage = "Configuration loaded successfully";

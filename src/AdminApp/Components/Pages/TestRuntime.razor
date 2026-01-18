@@ -615,6 +615,12 @@ Example: Show me the top 10 customers by total order value this year"></textarea
                                 ? GeneratedSQL
                                 : $"```sql\n{GeneratedSQL}\n```";
             GeneratedSQLHtml = Markdown.ToHtml(markdownContent, pipeline);
+
+            // Track test completion
+            appState.TestCompleted = true;
+            appState.LastTestRun = DateTime.Now;
+            appState.LastTestQueryCount = (appState.LastTestQueryCount ?? 0) + 1;
+            appState.NotifyStateChanged();
         }
         catch (Exception ex)
         {
