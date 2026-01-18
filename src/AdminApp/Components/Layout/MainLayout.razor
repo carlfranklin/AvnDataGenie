@@ -6,11 +6,21 @@
     </div>
 
     <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
-        </div>
+        <header class="top-bar">
+            <div class="top-bar-content">
+                <div class="breadcrumb-area">
+                    <span class="page-context">Configuration Portal</span>
+                </div>
+                <div class="top-bar-actions">
+                    <a href="https://github.com/" target="_blank" class="top-link" title="Documentation">
+                        <span class="icon">📖</span>
+                        <span class="link-text">Docs</span>
+                    </a>
+                </div>
+            </div>
+        </header>
 
-        <article class="content px-4">
+        <article class="content">
             @Body
         </article>
     </main>

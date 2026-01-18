@@ -1,6 +1,13 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">AdminApp</a>
+﻿@inject AppState appState
+@implements IDisposable
+
+<div class="sidebar-header">
+    <div class="brand">
+        <span class="brand-icon">✨</span>
+        <div class="brand-text">
+            <span class="brand-name">AvnDataGenie</span>
+            <span class="brand-subtitle">Configuration</span>
+        </div>
     </div>
 </div>
 
@@ -8,14 +15,158 @@
 
 <div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
     <nav class="nav flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill" aria-hidden="true"></span> Home
-            </NavLink>
-						<NavLink class="nav-link" href="/testRuntime">
-								<span class="bi bi-play-circle" aria-hidden="true"></span> Test Runtime
-						</NavLink>
+        <!-- Setup Progress as Navigation -->
+        <div class="progress-section">
+            <div class="progress-header">
+                <span class="progress-title">Setup Progress</span>
+                <span class="progress-count">@GetCompletedSteps()/4</span>
+            </div>
+            <div class="progress-steps">
+                <NavLink class="@GetStepClasses(1)" href="" Match="NavLinkMatch.All">
+                    <div class="step-indicator">
+                        @if (IsStepComplete(1))
+                        {
+                            <span class="step-check">✓</span>
+                        }
+                        else
+                        {
+                            <span class="step-number">1</span>
+                        }
+                    </div>
+                    <div class="step-content">
+                        <span class="step-title">Connect</span>
+                        <span class="step-desc">Add connection string</span>
+                    </div>
+                </NavLink>
+                <NavLink class="@GetStepClasses(2)" href="" Match="NavLinkMatch.All">
+                    <div class="step-indicator">
+                        @if (IsStepComplete(2))
+                        {
+                            <span class="step-check">✓</span>
+                        }
+                        else
+                        {
+                            <span class="step-number">2</span>
+                        }
+                    </div>
+                    <div class="step-content">
+                        <span class="step-title">Generate</span>
+                        <span class="step-desc">Extract database schema</span>
+                    </div>
+                </NavLink>
+                <NavLink class="@GetStepClasses(3)" href="config">
+                    <div class="step-indicator">
+                        @if (IsStepComplete(3))
+                        {
+                            <span class="step-check">✓</span>
+                        }
+                        else
+                        {
+                            <span class="step-number">3</span>
+                        }
+                    </div>
+                    <div class="step-content">
+                        <span class="step-title">Configure</span>
+                        <span class="step-desc">Add metadata & rules</span>
+                    </div>
+                </NavLink>
+                <NavLink class="@GetStepClasses(4)" href="TestRuntime">
+                    <div class="step-indicator">
+                        @if (IsStepComplete(4))
+                        {
+                            <span class="step-check">✓</span>
+                        }
+                        else
+                        {
+                            <span class="step-number">4</span>
+                        }
+                    </div>
+                    <div class="step-content">
+                        <span class="step-title">Test</span>
+                        <span class="step-desc">Verify your setup</span>
+                    </div>
+                </NavLink>
+            </div>
         </div>
+        
+        @if (appState.HasSchema && appState.DatabaseSchema != null)
+        {
+            <!-- Schema Stats -->
+            <div class="stats-section">
+                <div class="stats-header">
+                    <span class="stats-icon">📊</span>
+                    <span class="stats-title">Schema Summary</span>
+                </div>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <span class="stat-value">@appState.DatabaseSchema.Tables.Count</span>
+                        <span class="stat-label">Tables</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value">@appState.DatabaseSchema.Tables.Sum(t => t.Columns.Count)</span>
+                        <span class="stat-label">Columns</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value">@appState.DatabaseSchema.Tables.Sum(t => t.ForeignKeys.Count)</span>
+                        <span class="stat-label">Relations</span>
+                    </div>
+                </div>
+            </div>
+        }
     </nav>
 </div>
+
+@code {
+    protected override void OnInitialized()
+    {
+        appState.OnChange += StateHasChanged;
+    }
+
+    public void Dispose()
+    {
+        appState.OnChange -= StateHasChanged;
+    }
+
+    private int GetCompletedSteps()
+    {
+        int count = 0;
+        if (appState.HasSchema) count = 2; // Connect + Generate done
+        if (appState.HasConfiguration && appState.ConfigurationSaved) count = 3;
+        // Step 4 (Test) would be marked complete after testing
+        return count;
+    }
+
+    private bool IsStepComplete(int step)
+    {
+        return step switch
+        {
+            1 => appState.HasSchema, // If we have schema, connection was made
+            2 => appState.HasSchema,
+            3 => appState.HasConfiguration && appState.ConfigurationSaved,
+            4 => false, // Test completion would need additional tracking
+            _ => false
+        };
+    }
+
+    private string GetStepClasses(int step)
+    {
+        var classes = "progress-step";
+        
+        if (IsStepComplete(step))
+        {
+            classes += " complete";
+        }
+        else
+        {
+            // Determine if this is the current/active step
+            var currentStep = (int)appState.CurrentStep;
+            if (step == currentStep || step == currentStep + 1)
+            {
+                classes += " current";
+            }
+        }
+        
+        return classes;
+    }
+}
 

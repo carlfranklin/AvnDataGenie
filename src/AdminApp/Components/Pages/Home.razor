@@ -1,4 +1,4 @@
-﻿@page "/"
+@page "/"
 @using QueryGenerator
 @using QueryGenerator.Models
 @using System.Text.Json
@@ -8,60 +8,250 @@
 
 @rendermode InteractiveServer
 
-<PageTitle>Admin App</PageTitle>
+<PageTitle>AvnDataGenie - Database Schema</PageTitle>
 
-<div class="container mt-5">
-    <h1>Database Schema Generator</h1>
+<div class="page-header">
+    <div class="page-header-content">
+        <h1 class="page-title">Database Schema</h1>
+        <p class="page-description">Generate or load your database schema to get started with AvnDataGenie configuration.</p>
+    </div>
+</div>
 
-    <div class="mb-3">
-        <label for="connectionString" class="form-label">SQL Connection String:</label>
-        <textarea id="connectionString"
-                  class="form-control"
-                  rows="3"
-                  @bind="connectionString"></textarea>
+<div class="content-grid">
+    <div class="main-card">
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">
+                    <span class="card-icon">🔗</span>
+                    Connection Settings
+                </h2>
+            </div>
+            <div class="card-body">
+                <div class="form-group">
+                    <label for="connectionString" class="form-label">SQL Server Connection String</label>
+                    <textarea id="connectionString"
+                              class="form-control connection-input"
+                              rows="3"
+                              placeholder="Enter your SQL Server connection string..."
+                              @bind="connectionString"></textarea>
+                    <small class="form-text text-muted">The connection string will be used to extract the database schema.</small>
+                </div>
+
+                <div class="button-group">
+                    <button class="btn btn-primary btn-lg" @onclick="GenerateSchema" disabled="@isLoading">
+                        @if (isLoading)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                            <span>Generating...</span>
+                        }
+                        else
+                        {
+                            <span class="btn-icon">⚡</span>
+                            <span>Generate Schema</span>
+                        }
+                    </button>
+
+                    <button class="btn btn-outline-secondary btn-lg" @onclick="LoadSchema" disabled="@LoadSchemaButtonDisabled">
+                        <span class="btn-icon">📂</span>
+                        <span>Load Existing</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger mt-3" role="alert">
+                <span class="alert-icon">⚠️</span>
+                <div class="alert-content">
+                    <strong>Error</strong>
+                    <p>@errorMessage</p>
+                </div>
+            </div>
+        }
+
+        @if (!string.IsNullOrEmpty(appState.SchemaJson))
+        {
+            <div class="card mt-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h2 class="card-title">
+                        <span class="card-icon">📋</span>
+                        Schema Output
+                    </h2>
+                    <div class="schema-actions">
+                        <button class="btn btn-outline-danger btn-sm" @onclick="DeleteSchema">
+                            <span>🗑️</span> Delete
+                        </button>
+                        <button class="btn btn-success btn-sm" @onclick="GoToConfigurePage">
+                            <span>⚙️</span> Configure LLM
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <textarea id="schemaOutput"
+                          class="form-control schema-output"
+                          rows="20"
+                          readonly="readonly">@appState.SchemaJson</textarea>
+                </div>
+            </div>
+        }
     </div>
 
-    <button class="btn btn-primary" @onclick="GenerateSchema" disabled="@isLoading">
-        @if (isLoading)
-        {
-            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-            <span>Generating...</span>
-        }
-        else
-        {
-            <span>Generate Schema</span>
-        }
-    </button>
 
-    <button class="btn btn-primary" @onclick="LoadSchema" disabled="@LoadSchemaButtonDisabled">
-        <span>Load Schema</span>
-    </button>
-
-    @if (!string.IsNullOrEmpty(appState.SchemaJson))
-    {
-        <button class="btn btn-primary" style="margin-left:4px;" @onclick="DeleteSchema">Delete Schema</button>
-        <button class="btn btn-primary" @onclick="GoToConfigurePage">Configure Data Genie</button>
-    }
-
-    @if (!string.IsNullOrEmpty(errorMessage))
-    {
-        <div class="alert alert-danger mt-3" role="alert">
-            <strong>Error:</strong> @errorMessage
-        </div>
-    }
-
-    @if (!string.IsNullOrEmpty(appState.SchemaJson))
-    {
-        <div class="mt-4">
-            <label for="schemaOutput" class="form-label">Database Schema (JSON):</label>
-            <textarea id="schemaOutput"
-                  class="form-control"
-                  rows="20"
-                  readonly="readonly"
-                  style="font-family: monospace;">@appState.SchemaJson</textarea>
-        </div>
-    }
 </div>
+
+<style>
+    .page-header {
+        margin-bottom: 2rem;
+    }
+    
+    .page-title {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: #1e293b;
+        margin: 0 0 0.5rem 0;
+    }
+    
+    .page-description {
+        color: #64748b;
+        margin: 0;
+        font-size: 1rem;
+    }
+    
+    .content-grid {
+        max-width: 900px;
+    }
+    
+    .card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.75rem;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+    
+    .card-header {
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid #e2e8f0;
+        background: #f8fafc;
+        border-radius: 0.75rem 0.75rem 0 0;
+    }
+    
+    .card-title {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #1e293b;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .card-icon {
+        font-size: 1.125rem;
+    }
+    
+    .card-body {
+        padding: 1.5rem;
+    }
+    
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+    
+    .form-label {
+        font-weight: 600;
+        color: #374151;
+        margin-bottom: 0.5rem;
+        display: block;
+    }
+    
+    .connection-input {
+        font-family: 'Consolas', 'Monaco', monospace;
+        font-size: 0.875rem;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.5rem;
+        padding: 0.75rem 1rem;
+    }
+    
+    .connection-input:focus {
+        background: #ffffff;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+    
+    .form-text {
+        font-size: 0.8125rem;
+        margin-top: 0.5rem;
+    }
+    
+    .button-group {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+    }
+    
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-weight: 500;
+        border-radius: 0.5rem;
+        transition: all 0.15s ease;
+    }
+    
+    .btn-lg {
+        padding: 0.75rem 1.5rem;
+    }
+    
+    .btn-icon {
+        font-size: 1rem;
+    }
+    
+    .btn-primary {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        border: none;
+        box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+    }
+    
+    .btn-primary:hover:not(:disabled) {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(59, 130, 246, 0.4);
+    }
+    
+    .schema-output {
+        font-family: 'Consolas', 'Monaco', monospace;
+        font-size: 0.8125rem;
+        background: #0f172a;
+        color: #e2e8f0;
+        border: none;
+        border-radius: 0.5rem;
+        padding: 1rem;
+    }
+    
+    .schema-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+    
+    .alert {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.75rem;
+        padding: 1rem;
+        border-radius: 0.5rem;
+    }
+    
+    .alert-icon {
+        font-size: 1.25rem;
+    }
+    
+    .alert-content p {
+        margin: 0.25rem 0 0 0;
+    }
+    
+    /* Side Panel */
+</style>
 
 @code {
     private string connectionString = "Data Source=(localdb)\\MSSQLLocalDB;Initial Catalog=Chinook;Integrated Security=True;Connect Timeout=30;Encrypt=True;Trust Server Certificate=False;Application Intent=ReadWrite;Multi Subnet Failover=False;Command Timeout=30";
@@ -80,6 +270,7 @@
                 var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
                 appState.DatabaseSchema = JsonSerializer.Deserialize<DatabaseSchema>(appState.SchemaJson, options);
                 errorMessage = string.Empty;
+                appState.NotifyStateChanged();
             }
             catch (Exception ex)
             {
@@ -112,7 +303,9 @@
             {
                 File.Delete(appState.SaveFilePath);
                 appState.SchemaJson = string.Empty;
+                appState.DatabaseSchema = null;
                 errorMessage = string.Empty;
+                appState.NotifyStateChanged();
             }
             catch (Exception ex)
             {
@@ -153,6 +346,7 @@
 
             appState.SchemaJson = JsonSerializer.Serialize(schema, options);
             appState.DatabaseSchema = schema;
+            appState.NotifyStateChanged();
 
             // save it
             try

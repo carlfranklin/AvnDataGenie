@@ -1,23 +1,37 @@
 html, body {
-    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-family: 'Inter', 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    background-color: #f8fafc;
+}
+
+* {
+    box-sizing: border-box;
 }
 
 a, .btn-link {
-    color: #006bb7;
+    color: #3b82f6;
+}
+
+a:hover {
+    color: #2563eb;
 }
 
 .btn-primary {
     color: #fff;
-    background-color: #1b6ec2;
-    border-color: #1861ac;
+    background-color: #3b82f6;
+    border-color: #3b82f6;
+}
+
+.btn-primary:hover {
+    background-color: #2563eb;
+    border-color: #2563eb;
 }
 
 .btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
-  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
+  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #3b82f6;
 }
 
 .content {
-    padding-top: 1.1rem;
+    padding-top: 0;
 }
 
 h1:focus {
