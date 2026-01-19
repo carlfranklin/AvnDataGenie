@@ -1,3 +1,4 @@
+@* LLM Configuration Page - Configure tables, columns, joins, filters, and business terms for SQL generation *@
 @page "/config"
 @using SchemaGenerator.Models
 @using System.Text.Json
@@ -6,6 +7,7 @@
 
 @rendermode InteractiveServer
 
+@* Check if database schema is loaded before allowing configuration *@
 @if (appState.DatabaseSchema == null)
 {
     <div class="empty-state">
@@ -19,6 +21,7 @@
 }
 else
 {
+    @* Page Header - Title and description of the configuration page *@
     <div class="page-header">
         <div class="page-header-content">
             <h1 class="page-title">LLM Configuration</h1>
@@ -26,28 +29,36 @@ else
         </div>
     </div>
 
+    @* Configuration Tabs - Switch between different configuration sections *@
     <div class="config-tabs">
+        @* Tables & Columns Tab - Configure table/column names, descriptions, and security settings *@
         <button class="tab-button @(activeTab == "tables" ? "active" : "")" @onclick="@(() => activeTab = "tables")">
             <span class="tab-icon">📊</span>
             <span class="tab-label">Tables & Columns</span>
         </button>
+        @* Join Hints Tab - Define how tables relate to each other *@
         <button class="tab-button @(activeTab == "joins" ? "active" : "")" @onclick="@(() => activeTab = "joins")">
             <span class="tab-icon">🔗</span>
             <span class="tab-label">Join Hints</span>
         </button>
+        @* Required Filters Tab - Set up mandatory filters (e.g., tenant isolation, soft delete) *@
         <button class="tab-button @(activeTab == "filters" ? "active" : "")" @onclick="@(() => activeTab = "filters")">
             <span class="tab-icon">🔒</span>
             <span class="tab-label">Required Filters</span>
         </button>
+        @* Business Terms Tab - Define domain-specific terminology and concepts *@
         <button class="tab-button @(activeTab == "terms" ? "active" : "")" @onclick="@(() => activeTab = "terms")">
             <span class="tab-icon">📚</span>
             <span class="tab-label">Business Terms</span>
         </button>
     </div>
 
+    @* Tab Content Container - Displays content for the active tab *@
     <div class="tab-content">
+        @* TABLES & COLUMNS TAB - Configure friendly names, descriptions, and data sensitivity for all tables/columns *@
         @if (activeTab == "tables")
         {
+            @* Section header with description *@
             <div class="section-header">
                 <div>
                     <h3>Tables & Columns Configuration</h3>
@@ -55,17 +66,21 @@ else
                 </div>
             </div>
             
+            @* Loop through all tables in the database schema *@
             @foreach (var table in appState.DatabaseSchema.Tables)
             {
                 var tableKey = $"{table.SchemaName}.{table.TableName}";
                 var tableConfig = GetOrCreateTableConfig(table.SchemaName, table.TableName);
                 var isExpanded = expandedTables.Contains(tableKey);
 
+                @* Collapsible table card - Click to expand/collapse *@
                 <div class="table-card @(isExpanded ? "expanded" : "")">
+                    @* Table header - Shows table name, friendly name badge, and column count *@
                     <div class="table-card-header" @onclick="() => ToggleTable(tableKey)">
                         <div class="table-info">
                             <span class="expand-icon">@(isExpanded ? "▼" : "▶")</span>
                             <span class="table-name">@table.SchemaName.@table.TableName</span>
+                            @* Display friendly name badge if configured *@
                             @if (!string.IsNullOrWhiteSpace(tableConfig.FriendlyName))
                             {
                                 <span class="friendly-name-badge">@tableConfig.FriendlyName</span>
@@ -73,9 +88,12 @@ else
                             <span class="column-count">@table.Columns.Count columns</span>
                         </div>
                     </div>
+                    
+                    @* Expanded table body - Only visible when table is expanded *@
                     @if (isExpanded)
                     {
                         <div class="table-card-body">
+                            @* Table-level configuration fields (friendly name, description, aliases) *@
                             <div class="table-config-row">
                                 <div class="config-field">
                                     <label class="field-label">Friendly Name</label>
@@ -91,9 +109,11 @@ else
                                 </div>
                             </div>
 
+                            @* Columns configuration section *@
                             <div class="columns-section">
                                 <h4 class="columns-title">Columns</h4>
                                 <div class="columns-table-wrapper">
+                                    @* Table showing all columns with configuration options *@
                                     <table class="columns-table">
                                         <thead>
                                             <tr>
@@ -102,17 +122,20 @@ else
                                                 <th>Friendly Name</th>
                                                 <th>Description</th>
                                                 <th>Aliases</th>
-                                                <th class="center-col">PII</th>
-                                                <th class="center-col">Restricted</th>
+                                                <th class="center-col">PII</th> @* Personally Identifiable Information flag *@
+                                                <th class="center-col">Restricted</th> @* Restricted access flag *@
                                             </tr>
                                         </thead>
                                         <tbody>
+                                            @* Loop through columns in ordinal position order *@
                                             @foreach (var column in table.Columns.OrderBy(c => c.OrdinalPosition))
                                             {
                                                 var colConfig = GetOrCreateColumnConfig(tableConfig, column.ColumnName);
                                                 <tr>
+                                                    @* Column name and data type (read-only) *@
                                                     <td><code class="column-name-code">@column.ColumnName</code></td>
                                                     <td><span class="data-type">@column.DataType</span></td>
+                                                    @* Column-level configuration fields *@
                                                     <td>
                                                         <input type="text" class="form-control form-control-sm" @bind="colConfig.FriendlyName" placeholder="Friendly name" />
                                                     </td>
@@ -122,12 +145,14 @@ else
                                                     <td>
                                                         <input type="text" class="form-control form-control-sm" @bind="colConfig.Aliases" placeholder="Aliases" />
                                                     </td>
+                                                    @* PII checkbox - Mark column as containing personally identifiable information *@
                                                     <td class="center-col">
                                                         <label class="checkbox-wrapper">
                                                             <input type="checkbox" @bind="colConfig.IsPii" />
                                                             <span class="checkmark"></span>
                                                         </label>
                                                     </td>
+                                                    @* Restricted checkbox - Mark column as having restricted access *@
                                                     <td class="center-col">
                                                         <label class="checkbox-wrapper">
                                                             <input type="checkbox" @bind="colConfig.IsRestricted" />
@@ -145,23 +170,28 @@ else
                 </div>
             }
         }
+        @* JOIN HINTS TAB - Define how tables relate to each other for JOIN operations *@
         else if (activeTab == "joins")
         {
+            @* Section header with actions to regenerate from foreign keys or add new hint *@
             <div class="section-header">
                 <div>
                     <h3>Join Hints</h3>
                     <p class="section-description">Define common table joins to help the LLM understand relationships.</p>
                 </div>
                 <div class="section-actions">
+                    @* Regenerate button - Recreate join hints from database foreign key relationships *@
                     <button class="btn btn-outline-secondary btn-sm" @onclick="RegenerateJoinHints">
                         <span>🔄</span> Regenerate from FKs
                     </button>
+                    @* Add button - Manually add a new join hint *@
                     <button class="btn btn-primary btn-sm" @onclick="AddJoinHint">
                         <span>+</span> Add Join Hint
                     </button>
                 </div>
             </div>
 
+            @* Display join hints table if any exist *@
             @if (appState.LlmConfiguration.JoinHints.Any())
             {
                 <div class="data-table-wrapper">
@@ -177,9 +207,11 @@ else
                             </tr>
                         </thead>
                         <tbody>
+                            @* Loop through all join hints with index for deletion *@
                             @foreach (var (hint, index) in appState.LlmConfiguration.JoinHints.Select((h, i) => (h, i)))
                             {
                                 <tr>
+                                    @* From table dropdown - Source table for the join *@
                                     <td>
                                         <select class="form-select form-select-sm" @bind="hint.FromTable">
                                             <option value="">Select table...</option>
@@ -189,9 +221,11 @@ else
                                             }
                                         </select>
                                     </td>
+                                    @* From column input - Source column for the join *@
                                     <td>
                                         <input type="text" class="form-control form-control-sm" @bind="hint.FromColumn" placeholder="Column" />
                                     </td>
+                                    @* To table dropdown - Target table for the join *@
                                     <td>
                                         <select class="form-select form-select-sm" @bind="hint.ToTable">
                                             <option value="">Select table...</option>
@@ -201,12 +235,15 @@ else
                                             }
                                         </select>
                                     </td>
+                                    @* To column input - Target column for the join *@
                                     <td>
                                         <input type="text" class="form-control form-control-sm" @bind="hint.ToColumn" placeholder="Column" />
                                     </td>
+                                    @* Optional hint text - Additional context for the LLM about this relationship *@
                                     <td>
                                         <input type="text" class="form-control form-control-sm" @bind="hint.Hint" placeholder="Optional hint" />
                                     </td>
+                                    @* Delete button - Remove this join hint *@
                                     <td class="action-col">
                                         <button class="btn btn-icon btn-danger-subtle" @onclick="() => RemoveJoinHint(index)" title="Remove">
                                             <span>×</span>
@@ -220,25 +257,30 @@ else
             }
             else
             {
+                @* Empty state - Display when no join hints are configured *@
                 <div class="empty-list">
                     <p>No join hints defined yet. Click "Add Join Hint" or "Regenerate from FKs" to get started.</p>
                 </div>
             }
         }
+        @* REQUIRED FILTERS TAB - Define filters that must always be applied to queries *@
         else if (activeTab == "filters")
         {
+            @* Section header with add filter action *@
             <div class="section-header">
                 <div>
                     <h3>Required Filters</h3>
                     <p class="section-description">Define filters that must always be applied (tenant isolation, soft delete, etc.)</p>
                 </div>
                 <div class="section-actions">
+                    @* Add button - Create a new required filter *@
                     <button class="btn btn-primary btn-sm" @onclick="AddRequiredFilter">
                         <span>+</span> Add Filter
                     </button>
                 </div>
             </div>
 
+            @* Display filters table if any exist *@
             @if (appState.LlmConfiguration.RequiredFilters.Any())
             {
                 <div class="data-table-wrapper">
@@ -254,9 +296,11 @@ else
                             </tr>
                         </thead>
                         <tbody>
+                            @* Loop through all required filters with index for deletion *@
                             @foreach (var (filter, index) in appState.LlmConfiguration.RequiredFilters.Select((f, i) => (f, i)))
                             {
                                 <tr>
+                                    @* Table dropdown - Which table this filter applies to *@
                                     <td>
                                         <select class="form-select form-select-sm" @bind="filter.TableName">
                                             <option value="">Select table...</option>
@@ -266,9 +310,11 @@ else
                                             }
                                         </select>
                                     </td>
+                                    @* Column input - Which column to filter on *@
                                     <td>
                                         <input type="text" class="form-control form-control-sm" @bind="filter.ColumnName" placeholder="Column name" />
                                     </td>
+                                    @* Filter type dropdown - Categorize the filter (Tenant, SoftDelete, Custom) *@
                                     <td>
                                         <select class="form-select form-select-sm" @bind="filter.FilterType">
                                             <option value="Tenant">Tenant</option>
@@ -276,12 +322,15 @@ else
                                             <option value="Custom">Custom</option>
                                         </select>
                                     </td>
+                                    @* Default value input - What value/condition to use (e.g., "IS NULL", "= 1") *@
                                     <td>
                                         <input type="text" class="form-control form-control-sm" @bind="filter.DefaultValue" placeholder="e.g., IS NULL" />
                                     </td>
+                                    @* Description input - Explain what this filter does *@
                                     <td>
                                         <input type="text" class="form-control form-control-sm" @bind="filter.Description" placeholder="Description" />
                                     </td>
+                                    @* Delete button - Remove this required filter *@
                                     <td class="action-col">
                                         <button class="btn btn-icon btn-danger-subtle" @onclick="() => RemoveRequiredFilter(index)" title="Remove">
                                             <span>×</span>
@@ -295,40 +344,51 @@ else
             }
             else
             {
+                @* Empty state - Display when no required filters are configured *@
                 <div class="empty-list">
                     <p>No required filters defined yet. Click "Add Filter" to create one.</p>
                 </div>
             }
         }
+        @* BUSINESS TERMS TAB - Define domain-specific terminology and concepts *@
         else if (activeTab == "terms")
         {
+            @* Section header with add term action *@
             <div class="section-header">
                 <div>
                     <h3>Business Terms</h3>
                     <p class="section-description">Define business terminology and concepts (e.g., "Submitted grants", "Active customers")</p>
                 </div>
                 <div class="section-actions">
+                    @* Add button - Create a new business term *@
                     <button class="btn btn-primary btn-sm" @onclick="AddBusinessTerm">
                         <span>+</span> Add Term
                     </button>
                 </div>
             </div>
 
+            @* Display terms grid if any exist *@
             @if (appState.LlmConfiguration.BusinessTerms.Any())
             {
                 <div class="terms-grid">
+                    @* Loop through all business terms with index for deletion *@
                     @foreach (var (term, index) in appState.LlmConfiguration.BusinessTerms.Select((t, i) => (t, i)))
                     {
+                        @* Term card - Contains name, definition, and optional example *@
                         <div class="term-card">
+                            @* Delete button positioned in top-right corner *@
                             <button class="term-delete-btn" @onclick="() => RemoveBusinessTerm(index)" title="Remove">×</button>
+                            @* Term name input - What users will say (e.g., "Active customers") *@
                             <div class="term-field">
                                 <label class="field-label">Term Name</label>
                                 <input type="text" class="form-control" @bind="term.Name" placeholder="e.g., Submitted Grants" />
                             </div>
+                            @* Definition input - What the term means in business context *@
                             <div class="term-field">
                                 <label class="field-label">Definition</label>
                                 <input type="text" class="form-control" @bind="term.Definition" placeholder="Describe what this term means" />
                             </div>
+                            @* Example input (optional) - SQL condition or example usage *@
                             <div class="term-field">
                                 <label class="field-label">Example (Optional)</label>
                                 <input type="text" class="form-control" @bind="term.Example" placeholder="e.g., WHERE Status = 'Submitted'" />
@@ -339,6 +399,7 @@ else
             }
             else
             {
+                @* Empty state - Display when no business terms are configured *@
                 <div class="empty-list">
                     <p>No business terms defined yet. Click "Add Term" to create one.</p>
                 </div>
@@ -346,25 +407,33 @@ else
         }
     </div>
 
+    @* Action Bar - Main navigation and save/load actions *@
     <div class="action-bar">
+        @* Left side - Navigation *@
         <div class="action-bar-left">
+            @* Back button - Return to database schema page *@
             <button class="btn btn-outline-secondary" @onclick="@(() => navigationManager.NavigateTo("/"))">
                 <span>←</span> Back
             </button>
         </div>
+        @* Right side - Configuration management actions *@
         <div class="action-bar-right">
+            @* Load button - Reload configuration from saved file *@
             <button class="btn btn-outline-secondary" @onclick="LoadConfiguration">
                 <span>📂</span> Load
             </button>
+            @* Export button - Create timestamped export file *@
             <button class="btn btn-outline-secondary" @onclick="ExportConfiguration">
                 <span>📤</span> Export JSON
             </button>
+            @* Save button - Save current configuration to file *@
             <button class="btn btn-success" @onclick="SaveConfiguration">
                 <span>💾</span> Save Configuration
             </button>
         </div>
     </div>
 
+    @* Success message alert - Displayed when an operation succeeds *@
     @if (!string.IsNullOrEmpty(statusMessage))
     {
         <div class="alert alert-success mt-3">
@@ -372,6 +441,7 @@ else
             @statusMessage
         </div>
     }
+    @* Error message alert - Displayed when an operation fails *@
     @if (!string.IsNullOrEmpty(errorMessage))
     {
         <div class="alert alert-danger mt-3">
@@ -382,30 +452,48 @@ else
 }
 
 @code {
+    // Current active tab in the configuration interface
     private string activeTab = "tables";
+    
+    // Track which tables are expanded in the Tables & Columns tab
     private HashSet<string> expandedTables = new();
+    
+    // Status and error messages to display to the user
     private string statusMessage = string.Empty;
     private string errorMessage = string.Empty;
 
+    /// <summary>
+    /// Initialize component - set up config file path and load existing configuration if available
+    /// </summary>
     protected override async Task OnInitializedAsync()
     {
+        // Set the path where LLM configuration will be saved
         appState.ConfigSaveFilePath = Path.Combine(Environment.CurrentDirectory, "llm_config.json");
+        
+        // Try to load existing configuration from disk
         await TryLoadExistingConfiguration();
+        
+        // Initialize table configs and join hints if needed
         InitializeConfiguration();
     }
 
+    /// <summary>
+    /// Attempt to load existing LLM configuration from the saved JSON file
+    /// </summary>
     private async Task TryLoadExistingConfiguration()
     {
         if (File.Exists(appState.ConfigSaveFilePath))
         {
             try
             {
+                // Read and deserialize the configuration file
                 var json = await File.ReadAllTextAsync(appState.ConfigSaveFilePath);
                 var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
                 var config = JsonSerializer.Deserialize<LlmConfiguration>(json, options);
                 
                 if (config != null)
                 {
+                    // Load configuration into app state
                     appState.LlmConfiguration = config;
                     appState.ConfigurationSaved = true;
                     appState.NotifyStateChanged();
@@ -418,10 +506,14 @@ else
         }
     }
 
+    /// <summary>
+    /// Initialize table configurations and join hints from the database schema
+    /// </summary>
     private void InitializeConfiguration()
     {
         if (appState.DatabaseSchema != null)
         {
+            // Create table configurations for all schema tables if none exist
             if (!appState.LlmConfiguration.TableConfigurations.Any())
             {
                 foreach (var table in appState.DatabaseSchema.Tables)
@@ -430,6 +522,7 @@ else
                 }
             }
 
+            // Auto-generate join hints from foreign keys if none exist
             if (!appState.LlmConfiguration.JoinHints.Any())
             {
                 GenerateJoinHintsFromForeignKeys();
@@ -437,14 +530,19 @@ else
         }
     }
 
+    /// <summary>
+    /// Generate join hints automatically by analyzing foreign key relationships in the schema
+    /// </summary>
     private void GenerateJoinHintsFromForeignKeys()
     {
         if (appState.DatabaseSchema == null) return;
 
+        // Iterate through all tables and their foreign keys
         foreach (var table in appState.DatabaseSchema.Tables)
         {
             foreach (var fk in table.ForeignKeys)
             {
+                // Create a join hint for each column pair in the foreign key
                 for (int i = 0; i < fk.Columns.Count && i < fk.ReferencedColumns.Count; i++)
                 {
                     appState.LlmConfiguration.JoinHints.Add(new JoinHint
@@ -460,11 +558,16 @@ else
         }
     }
 
+    /// <summary>
+    /// Get or create a table configuration for the specified schema and table
+    /// </summary>
     private TableConfiguration GetOrCreateTableConfig(string schemaName, string tableName)
     {
+        // Look for existing table configuration
         var existing = appState.LlmConfiguration.TableConfigurations
             .FirstOrDefault(t => t.SchemaName == schemaName && t.TableName == tableName);
         
+        // Create new if not found
         if (existing == null)
         {
             existing = new TableConfiguration 
@@ -478,11 +581,16 @@ else
         return existing;
     }
 
+    /// <summary>
+    /// Get or create a column configuration within a table configuration
+    /// </summary>
     private ColumnConfiguration GetOrCreateColumnConfig(TableConfiguration tableConfig, string columnName)
     {
+        // Look for existing column configuration
         var existing = tableConfig.ColumnConfigurations
             .FirstOrDefault(c => c.ColumnName == columnName);
         
+        // Create new if not found
         if (existing == null)
         {
             existing = new ColumnConfiguration { ColumnName = columnName };
@@ -492,6 +600,9 @@ else
         return existing;
     }
 
+    /// <summary>
+    /// Toggle the expanded/collapsed state of a table card
+    /// </summary>
     private void ToggleTable(string tableKey)
     {
         if (expandedTables.Contains(tableKey))
@@ -500,11 +611,17 @@ else
             expandedTables.Add(tableKey);
     }
 
+    /// <summary>
+    /// Add a new empty join hint to the configuration
+    /// </summary>
     private void AddJoinHint()
     {
         appState.LlmConfiguration.JoinHints.Add(new JoinHint());
     }
 
+    /// <summary>
+    /// Clear all join hints and regenerate them from foreign keys
+    /// </summary>
     private void RegenerateJoinHints()
     {
         appState.LlmConfiguration.JoinHints.Clear();
@@ -512,114 +629,154 @@ else
         statusMessage = $"Generated {appState.LlmConfiguration.JoinHints.Count} join hints from foreign keys";
     }
 
+    /// <summary>
+    /// Remove a join hint at the specified index
+    /// </summary>
     private void RemoveJoinHint(int index)
     {
         appState.LlmConfiguration.JoinHints.RemoveAt(index);
     }
 
+    /// <summary>
+    /// Add a new empty required filter to the configuration
+    /// </summary>
     private void AddRequiredFilter()
     {
         appState.LlmConfiguration.RequiredFilters.Add(new RequiredFilter());
     }
 
+    /// <summary>
+    /// Remove a required filter at the specified index
+    /// </summary>
     private void RemoveRequiredFilter(int index)
     {
         appState.LlmConfiguration.RequiredFilters.RemoveAt(index);
     }
 
+    /// <summary>
+    /// Add a new empty business term to the configuration
+    /// </summary>
     private void AddBusinessTerm()
     {
         appState.LlmConfiguration.BusinessTerms.Add(new BusinessTerm());
     }
 
+    /// <summary>
+    /// Remove a business term at the specified index
+    /// </summary>
     private void RemoveBusinessTerm(int index)
     {
         appState.LlmConfiguration.BusinessTerms.RemoveAt(index);
     }
 
+    /// <summary>
+    /// Save the current LLM configuration to a JSON file
+    /// </summary>
     private async Task SaveConfiguration()
     {
         try
         {
+            // Configure JSON serialization with indentation and camelCase
             var options = new JsonSerializerOptions
             {
                 WriteIndented = true,
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase
             };
 
+            // Serialize and write to file
             var json = JsonSerializer.Serialize(appState.LlmConfiguration, options);
             await File.WriteAllTextAsync(appState.ConfigSaveFilePath, json);
             
+            // Update app state to reflect saved configuration
             appState.ConfigurationSaved = true;
             appState.RefreshFileStatus();
             appState.NotifyStateChanged();
             
+            // Display success message
             statusMessage = $"Configuration saved to {appState.ConfigSaveFilePath}";
             errorMessage = string.Empty;
         }
         catch (Exception ex)
         {
+            // Display error message
             errorMessage = $"Error saving configuration: {ex.Message}";
             statusMessage = string.Empty;
         }
     }
 
+    /// <summary>
+    /// Load LLM configuration from the saved JSON file
+    /// </summary>
     private async Task LoadConfiguration()
     {
         try
         {
             if (File.Exists(appState.ConfigSaveFilePath))
             {
+                // Read and deserialize the configuration file
                 var json = await File.ReadAllTextAsync(appState.ConfigSaveFilePath);
                 var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
                 var config = JsonSerializer.Deserialize<LlmConfiguration>(json, options);
                 
                 if (config != null)
                 {
+                    // Load configuration into app state
                     appState.LlmConfiguration = config;
                     appState.ConfigurationSaved = true;
                     appState.RefreshFileStatus();
                     appState.NotifyStateChanged();
+                    
+                    // Re-initialize to ensure all tables/columns are represented
                     InitializeConfiguration();
+                    
+                    // Display success message
                     statusMessage = "Configuration loaded successfully";
                     errorMessage = string.Empty;
                 }
             }
             else
             {
+                // Display error if file doesn't exist
                 errorMessage = "Configuration file does not exist";
                 statusMessage = string.Empty;
             }
         }
         catch (Exception ex)
         {
+            // Display error message
             errorMessage = $"Error loading configuration: {ex.Message}";
             statusMessage = string.Empty;
         }
     }
 
+    /// <summary>
+    /// Export the current configuration to a timestamped JSON file
+    /// </summary>
     private async Task ExportConfiguration()
     {
         try
         {
+            // Configure JSON serialization with indentation and camelCase
             var options = new JsonSerializerOptions
             {
                 WriteIndented = true,
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase
             };
 
+            // Serialize configuration
             var json = JsonSerializer.Serialize(appState.LlmConfiguration, options);
             
-            // For a web app, we'd typically trigger a download
-            // For now, just copy to a timestamped file
+            // Create timestamped export file
             var exportPath = Path.Combine(Environment.CurrentDirectory, $"llm_config_export_{DateTime.Now:yyyyMMdd_HHmmss}.json");
             await File.WriteAllTextAsync(exportPath, json);
             
+            // Display success message
             statusMessage = $"Configuration exported to {exportPath}";
             errorMessage = string.Empty;
         }
         catch (Exception ex)
         {
+            // Display error message
             errorMessage = $"Error exporting configuration: {ex.Message}";
             statusMessage = string.Empty;
         }
