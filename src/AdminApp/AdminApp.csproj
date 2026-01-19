@@ -7,11 +7,12 @@
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
     <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
     <DockerfileContext>..\</DockerfileContext>
+    <UserSecretsId>53417d26-f6cb-498a-bd52-0e5d43e8cbbd</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\AvnDataGenie\AvnDataGenie.csproj" />
-    <ProjectReference Include="..\QueryGenerator\SchemaGenerator.csproj" />
+    <ProjectReference Include="..\SchemaGenerator\SchemaGenerator.csproj" />
     <ProjectReference Include="..\ServiceDefaults\ServiceDefaults.csproj" />
   </ItemGroup>
 
