@@ -7,56 +7,54 @@ using ChatRole = Microsoft.Extensions.AI.ChatRole;
 
 namespace AvnDataGenie;
 
+/// <summary>
+/// Natural Language Query (NLQ) to SQL generator powered by Large Language Models.
+/// Translates user questions in plain English into executable T-SQL queries
+/// using schema metadata and business rules to guide the LLM.
+/// </summary>
+/// <param name="config">Configuration options for LLM settings (model, timeout, tokens)</param>
+/// <param name="chatClient">Microsoft.Extensions.AI chat client for LLM interaction</param>
+/// <param name="logger">Logger for diagnostics and debugging</param>
 public class Generator(IOptions<Configuration> config, IChatClient chatClient, ILogger<Generator> logger)
 {
 	private readonly Configuration _config = config.Value;
 
+	/// <summary>
+	/// Cached system prompt containing database schema and business rules.
+	/// Generated once and reused for all queries in the session for performance.
+	/// </summary>
 	public string SYSTEMPROMPT = "";
-	//public const string SYSTEMPROMPT = """
-	//	Generate T-SQL SELECT statements. Output SQL only, no explanations.
 
-	//	COLUMN NAME RULES (use EXACTLY these names):
-	//	- Artist: ArtistId, Name (NOT ArtistName)
-	//	- Album: AlbumId, Title, ArtistId
-	//	- Track: TrackId, Name, AlbumId, MediaTypeId, GenreId, Composer, Milliseconds, Bytes, UnitPrice
-	//	- InvoiceLine: InvoiceLineId, InvoiceId, TrackId, UnitPrice, Quantity (NOT LineItemPrice, NOT LineItemQuantity)
-	//	- Invoice: InvoiceId, CustomerId, InvoiceDate, Total (InvoiceDate is HERE, not on InvoiceLine)
-	//	- Customer: CustomerId, FirstName, LastName, Email, SupportRepId
-	//	- Genre: GenreId, Name
-	//	- MediaType: MediaTypeId, Name
-	//	- Playlist: PlaylistId, Name
-	//	- PlaylistTrack: PlaylistId, TrackId
-	//	- Employee: EmployeeId, FirstName, LastName, Title, ReportsTo
-
-	//	JOIN PATHS:
-	//	- Artist sales: InvoiceLine → Track → Album → Artist
-	//	- Need InvoiceDate? Join InvoiceLine → Invoice
-
-	//	FORMAT:
-	//	SELECT TOP(n)
-	//	    col1,
-	//	    col2
-	//	FROM dbo.Table1 t1
-	//	INNER JOIN dbo.Table2 t2 ON t1.Id = t2.ForeignId
-	//	GROUP BY col1
-	//	ORDER BY col2 DESC;
-
-	//	Use T-SQL: TOP(n) not LIMIT. Output ONLY SQL starting with SELECT.
-	//	""";
-
+	/// <summary>
+	/// Generates a T-SQL SELECT statement from a natural language query.
+	/// Combines schema metadata and business rules to create a constrained prompt
+	/// that guides the LLM to produce valid, executable SQL.
+	/// </summary>
+	/// <param name="naturalLanguageQuery">User's question in plain English (e.g., "Show top 10 customers by revenue")</param>
+	/// <param name="jsonSchema">JSON string containing database schema (from SchemaGenerator.Generator)</param>
+	/// <param name="llmMetadata">JSON string containing business rules and metadata (LlmConfiguration)</param>
+	/// <returns>Formatted T-SQL SELECT statement ready for execution</returns>
+	/// <exception cref="OperationCanceledException">Thrown when LLM request times out</exception>
+	/// <exception cref="Exception">Thrown when LLM service is unavailable or returns an error</exception>
 	public async Task<string> GenerateStatementFromNlq(string naturalLanguageQuery, string jsonSchema, string llmMetadata)
 	{
-		// generate the system prompt if not already done
+		// Generate the system prompt if not already cached
+		// System prompt contains schema + rules and is expensive to build, so we cache it
 		if (string.IsNullOrWhiteSpace(SYSTEMPROMPT))
 		{
 			SYSTEMPROMPT = SqlPromptBuilder.CreateSystemPromptFromJson(jsonSchema, llmMetadata);
-			//string filePath = "C:\\Users\\carl\\SystemPrompt.txt";
+
+			// Optionally, write the system prompt to a file for debugging
+			// Useful for understanding what context the LLM receives
+			//string filePath = "C:\\MYPATH\\SystemPrompt.txt";
 			//await File.WriteAllTextAsync(filePath, SYSTEMPROMPT);
+
 			logger.LogInformation("System prompt generated and cached.");
 			logger.LogDebug("System Prompt: {SystemPrompt}", SYSTEMPROMPT);
 		}
 
-		// Combine all user prompts into a single, structured message for better performance
+		// Combine all user instructions into a single, structured message
+		// This is more efficient than multiple user messages and helps LLM focus
 		var combinedPrompt = $"""
 			{(string.IsNullOrWhiteSpace(llmMetadata) ? "" : $"HINTS:\n{llmMetadata}\n")}
 
@@ -65,28 +63,30 @@ public class Generator(IOptions<Configuration> config, IChatClient chatClient, I
 			Return only T-SQL starting with SELECT.
 			""";
 
-		// Create optimized chat messages (single user message instead of multiple)
+		// Create chat messages: system prompt + user query
+		// System prompt provides context and constraints
+		// User prompt provides the specific question to answer
 		var chatMessages = new ChatMessage[]
 		{
 			new ChatMessage(ChatRole.System, SYSTEMPROMPT),
 			new ChatMessage(ChatRole.User, combinedPrompt)
 		};
 
-		// Configure chat options for better performance
+		// Configure LLM generation parameters
 		var chatOptions = new ChatOptions
 		{
-			MaxOutputTokens = _config.MaxTokens,
-			Temperature = 0.15f
+			MaxOutputTokens = _config.MaxTokens,  // Limit response length
+			Temperature = 0.15f  // Low temperature = more deterministic, focused output
 		};
 
-		// Send request with timeout and performance options
+		// Send request with timeout to prevent hanging on slow/failed LLM calls
 		using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(_config.RequestTimeoutSeconds));
 		var response = await chatClient.GetResponseAsync(chatMessages, chatOptions, cts.Token);
 
-		// Clean and return the generated statement
+		// Clean and normalize the LLM response
 		var sqlStatement = response.Text.Trim();
 		
-		// Extract SQL from markdown code blocks if present
+		// Extract SQL from markdown code blocks if LLM wrapped it in ```sql ... ```
 		var sqlMatch = System.Text.RegularExpressions.Regex.Match(
 			sqlStatement, 
 			@"```(?:sql)?\s*([\s\S]*?)```", 
@@ -96,18 +96,19 @@ public class Generator(IOptions<Configuration> config, IChatClient chatClient, I
 			sqlStatement = sqlMatch.Groups[1].Value.Trim();
 		}
 		
-		// If response has preamble, extract starting from SELECT
+		// If LLM added preamble text, extract starting from SELECT keyword
 		var selectIndex = sqlStatement.IndexOf("SELECT", StringComparison.OrdinalIgnoreCase);
 		if (selectIndex > 0)
 		{
 			sqlStatement = sqlStatement[selectIndex..];
 		}
 		
-		// Remove trailing commentary after the SQL ends (after final semicolon or common patterns)
+		// Remove trailing commentary after the SQL ends
+		// Some LLMs add explanatory text after the query
 		var lastSemicolon = sqlStatement.LastIndexOf(';');
 		if (lastSemicolon > 0)
 		{
-			// Check if there's commentary after the semicolon
+			// Check if there's non-SQL text after the semicolon
 			var afterSemicolon = sqlStatement[(lastSemicolon + 1)..].Trim();
 			if (!string.IsNullOrEmpty(afterSemicolon) && !afterSemicolon.StartsWith("SELECT", StringComparison.OrdinalIgnoreCase))
 			{
@@ -115,12 +116,13 @@ public class Generator(IOptions<Configuration> config, IChatClient chatClient, I
 			}
 		}
 		
-		// Remove SQL comments (-- and /* */)
+		// Remove SQL comments (-- single line and /* multi-line */)
+		// LLMs sometimes add explanatory comments which aren't needed
 		sqlStatement = System.Text.RegularExpressions.Regex.Replace(sqlStatement, @"--.*?$", "", 
 			System.Text.RegularExpressions.RegexOptions.Multiline);
 		sqlStatement = System.Text.RegularExpressions.Regex.Replace(sqlStatement, @"/\*[\s\S]*?\*/", "");
 		
-		// Format the SQL for readability
+		// Format the SQL for readability with proper indentation
 		sqlStatement = FormatSql(sqlStatement);
 		
 		// Ensure statement ends with semicolon for clean execution
@@ -134,22 +136,25 @@ public class Generator(IOptions<Configuration> config, IChatClient chatClient, I
 
 	/// <summary>
 	/// Formats SQL statement for readability by adding proper line breaks and indentation.
+	/// Uses regex-based rules to identify SQL keywords and structure the output.
 	/// </summary>
+	/// <param name="sql">Raw SQL string (potentially on one line)</param>
+	/// <returns>Formatted SQL with newlines and indentation</returns>
 	private static string FormatSql(string sql)
 	{
 		if (string.IsNullOrWhiteSpace(sql))
 			return sql;
 
-		// Normalize whitespace - replace multiple spaces/tabs/newlines with single space
+		// Normalize whitespace - collapse multiple spaces/tabs/newlines to single space
 		sql = System.Text.RegularExpressions.Regex.Replace(sql.Trim(), @"\s+", " ");
 
-		// Keywords that should start on a new line (not indented)
+		// Keywords that should start on a new line at the base indentation level
 		var majorKeywords = new[] { "SELECT", "FROM", "WHERE", "GROUP BY", "HAVING", "ORDER BY", "UNION", "EXCEPT", "INTERSECT" };
 		
-		// Keywords that should start on a new line (slightly indented for joins)
+		// JOIN keywords should be indented one level
 		var joinKeywords = new[] { "INNER JOIN", "LEFT OUTER JOIN", "RIGHT OUTER JOIN", "FULL OUTER JOIN", "LEFT JOIN", "RIGHT JOIN", "FULL JOIN", "CROSS JOIN", "JOIN" };
 
-		// Add newlines before major keywords
+		// Add newlines before major keywords (unless at start of statement)
 		foreach (var keyword in majorKeywords)
 		{
 			sql = System.Text.RegularExpressions.Regex.Replace(
@@ -159,7 +164,7 @@ public class Generator(IOptions<Configuration> config, IChatClient chatClient, I
 				System.Text.RegularExpressions.RegexOptions.IgnoreCase);
 		}
 
-		// Add newlines before JOIN keywords
+		// Add newlines before JOIN keywords with indentation
 		foreach (var keyword in joinKeywords)
 		{
 			sql = System.Text.RegularExpressions.Regex.Replace(
@@ -169,24 +174,25 @@ public class Generator(IOptions<Configuration> config, IChatClient chatClient, I
 				System.Text.RegularExpressions.RegexOptions.IgnoreCase);
 		}
 
-		// Add newline and indent after SELECT (for columns)
+		// Add newline and indent after SELECT keyword (for column list)
+		// Handles SELECT TOP(n) and SELECT DISTINCT
 		sql = System.Text.RegularExpressions.Regex.Replace(
 			sql,
 			@"(SELECT(?:\s+TOP\s*\(\d+\)|\s+DISTINCT)?)\s+",
 			"$1\n    ",
 			System.Text.RegularExpressions.RegexOptions.IgnoreCase);
 
-		// Add newlines after commas in SELECT list (but not inside functions)
+		// Add newlines after commas in SELECT list (respecting function parentheses)
 		sql = FormatSelectColumns(sql);
 
-		// Add newline before ON in joins
+		// Add newline before ON in JOIN clauses with extra indentation
 		sql = System.Text.RegularExpressions.Regex.Replace(
 			sql,
 			@"\s+(ON)\s+",
 			"\n        $1 ",
 			System.Text.RegularExpressions.RegexOptions.IgnoreCase);
 
-		// Clean up any double newlines
+		// Clean up any double newlines that may have been introduced
 		sql = System.Text.RegularExpressions.Regex.Replace(sql, @"\n\s*\n", "\n");
 		
 		return sql.Trim();
@@ -194,7 +200,10 @@ public class Generator(IOptions<Configuration> config, IChatClient chatClient, I
 
 	/// <summary>
 	/// Formats columns in SELECT clause, adding newlines after commas while respecting function parentheses.
+	/// Ensures that function calls like COUNT(*) remain on one line, while separating column names.
 	/// </summary>
+	/// <param name="sql">SQL string to format</param>
+	/// <returns>SQL with properly formatted SELECT column list</returns>
 	private static string FormatSelectColumns(string sql)
 	{
 		var result = new System.Text.StringBuilder();
@@ -205,7 +214,7 @@ public class Generator(IOptions<Configuration> config, IChatClient chatClient, I
 		{
 			char c = sql[i];
 
-			// Track if we're in SELECT clause
+			// Detect when we enter/exit SELECT clause
 			if (i + 6 <= sql.Length && sql.Substring(i, 6).Equals("SELECT", StringComparison.OrdinalIgnoreCase))
 			{
 				inSelectClause = true;
@@ -215,7 +224,8 @@ public class Generator(IOptions<Configuration> config, IChatClient chatClient, I
 				inSelectClause = false;
 			}
 
-			// Track parentheses depth
+			// Track parentheses depth to avoid splitting inside function calls
+			// e.g., don't split COUNT(*) or SUBSTRING(name, 1, 10)
 			if (c == '(')
 				parenDepth++;
 			else if (c == ')')
@@ -223,11 +233,13 @@ public class Generator(IOptions<Configuration> config, IChatClient chatClient, I
 
 			result.Append(c);
 
-			// Add newline after comma if in SELECT clause and not inside parentheses
+			// Add newline after comma only if:
+			// 1. We're in SELECT clause
+			// 2. We're not inside parentheses (parenDepth == 0)
 			if (c == ',' && inSelectClause && parenDepth == 0)
 			{
 				result.Append("\n    ");
-				// Skip any whitespace after the comma
+				// Skip any whitespace after the comma to avoid double spaces
 				while (i + 1 < sql.Length && char.IsWhiteSpace(sql[i + 1]))
 					i++;
 			}

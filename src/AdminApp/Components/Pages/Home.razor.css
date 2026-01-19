@@ -1,0 +1,162 @@
+/* ========================================
+   Home Page - Scoped Styles
+   ======================================== */
+
+/* Page Header */
+.page-header {
+    margin-bottom: 2rem;
+}
+
+.page-title {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0 0 0.5rem 0;
+}
+
+.page-description {
+    color: #64748b;
+    margin: 0;
+    font-size: 1rem;
+}
+
+/* Content Layout */
+.content-grid {
+    max-width: 900px;
+}
+
+/* Card Components */
+.card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.75rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.card-header {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #e2e8f0;
+    background: #f8fafc;
+    border-radius: 0.75rem 0.75rem 0 0;
+}
+
+.card-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #1e293b;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.card-icon {
+    font-size: 1.125rem;
+}
+
+.card-body {
+    padding: 1.5rem;
+}
+
+/* Form Elements */
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-label {
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 0.5rem;
+    display: block;
+}
+
+/* Connection String Input */
+.connection-input {
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 0.875rem;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.5rem;
+    padding: 0.75rem 1rem;
+}
+
+.connection-input:focus {
+    background: #ffffff;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.form-text {
+    font-size: 0.8125rem;
+    margin-top: 0.5rem;
+}
+
+/* Button Group */
+.button-group {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+/* Button Styles */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 500;
+    border-radius: 0.5rem;
+    transition: all 0.15s ease;
+}
+
+.btn-lg {
+    padding: 0.75rem 1.5rem;
+}
+
+.btn-icon {
+    font-size: 1rem;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    border: none;
+    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+}
+
+.btn-primary:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(59, 130, 246, 0.4);
+}
+
+/* Schema Output Display */
+.schema-output {
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 0.8125rem;
+    background: #0f172a;
+    color: #e2e8f0;
+    border: none;
+    border-radius: 0.5rem;
+    padding: 1rem;
+}
+
+/* Schema Action Buttons */
+.schema-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+/* Alert Messages */
+.alert {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 1rem;
+    border-radius: 0.5rem;
+}
+
+.alert-icon {
+    font-size: 1.25rem;
+}
+
+.alert-content p {
+    margin: 0.25rem 0 0 0;
+}

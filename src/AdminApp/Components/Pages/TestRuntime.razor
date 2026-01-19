@@ -1,3 +1,30 @@
+@* 
+    ========================================
+    Component: TestRuntime
+    ========================================
+    Purpose: Interactive testing page for LLM-generated SQL queries.
+            Allows users to input natural language queries and receive
+            generated SQL statements with syntax highlighting.
+    
+    Key Features:
+    - Natural language to SQL conversion using LLM
+    - Query history with persistence (browser storage)
+    - Advanced configuration overrides (schema/LLM config)
+    - Configuration validation before testing
+    - Markdown rendering with syntax highlighting
+    - Copy to clipboard functionality
+    - Direct execution navigation
+    
+    Dependencies:
+    - AvnDataGenie.Generator (injected) - LLM SQL generation
+    - AppState (injected) - Application state management
+    - IJSRuntime (injected) - JavaScript interop for clipboard
+    - NavigationManager (injected) - Page navigation
+    - Markdig - Markdown parsing with syntax highlighting
+    
+    Route: /testruntime
+    ========================================
+*@
 @page "/testruntime"
 @inject AvnDataGenie.Generator DataGenerator
 @inject AppState appState
@@ -13,6 +40,7 @@
 
 <PageTitle>Test Runtime - AvnDataGenie</PageTitle>
 
+@* Page header with title and description *@
 <div class="page-header">
     <div class="page-header-content">
         <h1 class="page-title">Test Your Configuration</h1>
@@ -20,12 +48,14 @@
     </div>
 </div>
 
+@* Show setup required message if configuration is incomplete *@
 @if (!IsConfigurationReady)
 {
     <div class="setup-required-card">
         <div class="setup-icon">⚠️</div>
         <h3>Configuration Required</h3>
         <p>Please complete the setup steps before testing. You need both a database schema and LLM configuration.</p>
+        @* Status indicators for schema and configuration *@
         <div class="setup-status">
             <div class="status-item @(appState.HasSchema ? "complete" : "pending")">
                 <span class="status-icon">@(appState.HasSchema ? "✓" : "○")</span>
@@ -36,6 +66,7 @@
                 <span>LLM Configuration (@appState.ConfiguredTablesCount configs)</span>
             </div>
         </div>
+        @* Debug info showing state load status *@
         <p style="font-size: 0.875rem; color: #666;">State loaded: @_stateLoaded, Has Schema: @appState.HasSchema, Has Config: @appState.HasConfiguration</p>
         <a href="" class="btn btn-primary">
             <span>🔗</span> Go to Setup
@@ -44,8 +75,9 @@
 }
 else
 {
+    @* Main testing interface (only shown when configuration is ready) *@
     <div class="test-layout">
-        <!-- Query Input Section -->
+        @* Query Input Section *@
         <div class="query-section">
             <div class="card">
                 <div class="card-header">
@@ -55,6 +87,7 @@ else
                     </h2>
                 </div>
                 <div class="card-body">
+                    @* Main query input textarea *@
                     <textarea class="form-control query-input" 
                               rows="4" 
                               @bind="NaturalLanguageInput" 
@@ -62,17 +95,21 @@ else
 
     Example: Show the top 10 selling albums of all time with sales numbers"></textarea>
                     
+                    @* Query history section (only shown if history exists) *@
                     @if (appState.QueryHistory.Any())
                     {
                         <div class="query-history">
                             <label class="query-history-label">Recent Queries:</label>
                             <div class="query-history-list">
+                                @* Display each historical query with select and delete buttons *@
                                 @foreach (var query in appState.QueryHistory)
                                 {
                                     <div class="query-history-item">
+                                        @* Click to load query into input *@
                                         <button class="query-history-btn" @onclick="() => SelectHistoryQuery(query)" title="@query">
                                             @(query.Length > 60 ? query.Substring(0, 60) + "..." : query)
                                         </button>
+                                        @* Delete query from history *@
                                         <button class="query-history-delete" @onclick="() => RemoveFromHistory(query)" title="Remove from history">
                                             ✕
                                         </button>
@@ -82,7 +119,9 @@ else
                         </div>
                     }
                     
+                    @* Action buttons for query generation and configuration *@
                     <div class="query-actions">
+                        @* Primary action: Generate SQL from natural language *@
                         <button class="btn btn-primary btn-lg" @onclick="GenerateSQL" disabled="@IsGenerating">
                             @if (IsGenerating)
                             {
@@ -96,6 +135,7 @@ else
                             }
                         </button>
                         
+                        @* Toggle advanced configuration panel *@
                         <button class="btn btn-outline-secondary" @onclick="ToggleAdvanced">
                             <span class="btn-icon">@(showAdvanced ? "▼" : "▶")</span>
                             <span>@(showAdvanced ? "Hide" : "Show") Configuration</span>
@@ -104,41 +144,51 @@ else
                 </div>
             </div>
 
+            @* Advanced configuration panel (collapsible) *@
             @if (showAdvanced)
             {
                 <div class="advanced-section">
                     <div class="config-panels">
+                        @* Database schema override panel *@
                         <div class="config-panel">
                             <div class="config-panel-header">
                                 <span class="config-icon">🗄️</span>
                                 <span class="config-label">Database Schema</span>
+                                @* Badge showing if using custom or setup values *@
                                 <span class="config-source @(useCustomSchema ? "custom" : "default")">
                                     @(useCustomSchema ? "Custom" : "From Setup")
                                 </span>
                             </div>
+                            @* Editable schema JSON (triggers custom flag on change) *@
                             <textarea class="form-control config-textarea" 
                                       rows="10" 
                                       @bind="databaseSchema"
                                       @oninput="OnSchemaChanged"></textarea>
                         </div>
+                        @* LLM configuration override panel *@
                         <div class="config-panel">
                             <div class="config-panel-header">
                                 <span class="config-icon">⚙️</span>
                                 <span class="config-label">LLM Configuration</span>
+                                @* Badge showing if using custom or setup values *@
                                 <span class="config-source @(useCustomConfig ? "custom" : "default")">
                                     @(useCustomConfig ? "Custom" : "From Setup")
                                 </span>
                             </div>
+                            @* Editable LLM config JSON (triggers custom flag on change) *@
                             <textarea class="form-control config-textarea" 
                                       rows="10" 
                                       @bind="llmConfig"
                                       @oninput="OnConfigChanged"></textarea>
                         </div>
                     </div>
+                    @* Configuration action buttons *@
                     <div class="config-actions">
+                        @* Reset to values from setup wizard (disabled if already using defaults) *@
                         <button class="btn btn-outline-secondary btn-sm" @onclick="ResetToDefaults" disabled="@(!useCustomSchema && !useCustomConfig)">
                             <span>↺</span> Reset to Setup Values
                         </button>
+                        @* Load from local JSON files *@
                         <button class="btn btn-outline-secondary btn-sm" @onclick="LoadFromFiles">
                             <span>📂</span> Load from Files
                         </button>
@@ -147,8 +197,9 @@ else
             }
         </div>
 
-        <!-- Results Section -->
+        @* Results Section *@
         <div class="results-section">
+            @* Display generated SQL with syntax highlighting *@
             @if (!string.IsNullOrEmpty(GeneratedSQLHtml))
             {
                 <div class="card result-card">
@@ -158,15 +209,18 @@ else
                             Generated SQL
                         </h2>
                         <div class="header-actions">
+                            @* Copy SQL to clipboard *@
                             <button class="btn btn-outline-secondary btn-sm" @onclick="CopyToClipboard">
                                 <span>📋</span> Copy
                             </button>
+                            @* Navigate to execution page *@
                             <button class="btn btn-primary btn-sm" @onclick="ExecuteResults">
                                 <span>▶️</span> Execute Statement
                             </button>
                         </div>
                     </div>
                     <div class="card-body result-body">
+                        @* Render markdown-formatted SQL with syntax highlighting *@
                         <div class="markdown-content">
                             @((MarkupString)GeneratedSQLHtml)
                         </div>
@@ -175,6 +229,7 @@ else
             }
             else
             {
+                @* Empty state when no SQL has been generated yet *@
                 <div class="empty-results">
                     <div class="empty-icon">🔍</div>
                     <h3>No Results Yet</h3>
@@ -185,482 +240,87 @@ else
     </div>
 }
 
-<style>
-    .page-header {
-        margin-bottom: 2rem;
-    }
-    
-    .page-title {
-        font-size: 1.75rem;
-        font-weight: 700;
-        color: #1e293b;
-        margin: 0 0 0.5rem 0;
-    }
-    
-    .page-description {
-        color: #64748b;
-        margin: 0;
-        font-size: 1rem;
-    }
-    
-    /* Setup Required Card */
-    .setup-required-card {
-        background: #fffbeb;
-        border: 1px solid #fcd34d;
-        border-radius: 0.75rem;
-        padding: 2rem;
-        text-align: center;
-        max-width: 500px;
-    }
-    
-    .setup-icon {
-        font-size: 3rem;
-        margin-bottom: 1rem;
-    }
-    
-    .setup-required-card h3 {
-        font-size: 1.25rem;
-        font-weight: 600;
-        color: #92400e;
-        margin: 0 0 0.5rem 0;
-    }
-    
-    .setup-required-card p {
-        color: #a16207;
-        margin: 0 0 1.5rem 0;
-    }
-    
-    .setup-status {
-        display: flex;
-        justify-content: center;
-        gap: 1.5rem;
-        margin-bottom: 1.5rem;
-    }
-    
-    .status-item {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        font-size: 0.875rem;
-    }
-    
-    .status-item.complete {
-        color: #16a34a;
-    }
-    
-    .status-item.pending {
-        color: #9ca3af;
-    }
-    
-    .status-icon {
-        font-weight: 600;
-    }
-    
-    /* Test Layout */
-    .test-layout {
-        display: flex;
-        flex-direction: column;
-        gap: 1.5rem;
-    }
-    
-    /* Cards */
-    .card {
-        background: #ffffff;
-        border: 1px solid #e2e8f0;
-        border-radius: 0.75rem;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-    }
-    
-    .card-header {
-        padding: 1rem 1.5rem;
-        border-bottom: 1px solid #e2e8f0;
-        background: #f8fafc;
-        border-radius: 0.75rem 0.75rem 0 0;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-    
-    .header-actions {
-        display: flex;
-        gap: 0.5rem;
-        align-items: center;
-    }
-    
-    .card-title {
-        font-size: 1rem;
-        font-weight: 600;
-        color: #1e293b;
-        margin: 0;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-    }
-    
-    .card-icon {
-        font-size: 1.125rem;
-    }
-    
-    .card-body {
-        padding: 1.5rem;
-    }
-    
-    /* Query Input */
-    .query-input {
-        font-size: 1rem;
-        background: #f8fafc;
-        border: 1px solid #e2e8f0;
-        border-radius: 0.5rem;
-        padding: 1rem;
-        resize: vertical;
-        min-height: 100px;
-    }
-    
-    .query-input:focus {
-        background: #ffffff;
-        border-color: #3b82f6;
-        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-        outline: none;
-    }
-    
-    .query-input::placeholder {
-        color: #94a3b8;
-    }
-    
-    .query-history {
-        margin-top: 1rem;
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
-    }
-    
-    .query-history-label {
-        font-size: 0.875rem;
-        font-weight: 500;
-        color: #64748b;
-        margin: 0;
-    }
-    
-    .query-history-list {
-        display: flex;
-        flex-direction: column;
-        gap: 0.25rem;
-        max-height: 200px;
-        overflow-y: auto;
-        border: 1px solid #e2e8f0;
-        border-radius: 0.5rem;
-        padding: 0.5rem;
-        background: #f8fafc;
-    }
-    
-    .query-history-item {
-        display: flex;
-        align-items: center;
-        gap: 0.25rem;
-    }
-    
-    .query-history-btn {
-        flex: 1;
-        text-align: left;
-        font-size: 0.875rem;
-        background: #ffffff;
-        border: 1px solid #e2e8f0;
-        border-radius: 0.375rem;
-        padding: 0.5rem 0.75rem;
-        color: #1e293b;
-        cursor: pointer;
-        transition: all 0.15s ease;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-    
-    .query-history-btn:hover {
-        background: #f1f5f9;
-        border-color: #cbd5e1;
-        transform: translateX(2px);
-    }
-    
-    .query-history-delete {
-        flex-shrink: 0;
-        width: 2rem;
-        height: 2rem;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: #ffffff;
-        border: 1px solid #e2e8f0;
-        border-radius: 0.375rem;
-        color: #64748b;
-        cursor: pointer;
-        transition: all 0.15s ease;
-        font-size: 1rem;
-        line-height: 1;
-    }
-    
-    .query-history-delete:hover {
-        background: #fee2e2;
-        border-color: #fecaca;
-        color: #dc2626;
-    }
-    
-    .query-actions {
-        display: flex;
-        gap: 0.75rem;
-        margin-top: 1rem;
-        flex-wrap: wrap;
-    }
-    
-    /* Buttons */
-    .btn {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-        font-weight: 500;
-        border-radius: 0.5rem;
-        transition: all 0.15s ease;
-        cursor: pointer;
-    }
-    
-    .btn-lg {
-        padding: 0.75rem 1.5rem;
-        font-size: 1rem;
-    }
-    
-    .btn-sm {
-        padding: 0.375rem 0.75rem;
-        font-size: 0.8125rem;
-    }
-    
-    .btn-icon {
-        font-size: 1rem;
-    }
-    
-    .btn-primary {
-        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-        border: none;
-        color: #ffffff;
-        box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
-    }
-    
-    .btn-primary:hover:not(:disabled) {
-        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-        transform: translateY(-1px);
-        box-shadow: 0 4px 8px rgba(59, 130, 246, 0.4);
-    }
-    
-    .btn-primary:disabled {
-        opacity: 0.6;
-        cursor: not-allowed;
-    }
-    
-    .btn-outline-secondary {
-        background: transparent;
-        border: 1px solid #e2e8f0;
-        color: #64748b;
-        padding: 0.625rem 1rem;
-    }
-    
-    .btn-outline-secondary:hover {
-        background: #f8fafc;
-        border-color: #cbd5e1;
-        color: #475569;
-    }
-    
-    .spinner {
-        width: 1rem;
-        height: 1rem;
-        border: 2px solid rgba(255, 255, 255, 0.3);
-        border-top-color: #ffffff;
-        border-radius: 50%;
-        animation: spin 0.6s linear infinite;
-    }
-    
-    @@keyframes spin {
-        to { transform: rotate(360deg); }
-    }
-    
-    /* Advanced Section */
-    .advanced-section {
-        margin-top: 1rem;
-        padding-top: 1rem;
-        border-top: 1px solid #e2e8f0;
-    }
-    
-    .config-panels {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 1rem;
-    }
-    
-    @@media (max-width: 768px) {
-        .config-panels {
-            grid-template-columns: 1fr;
-        }
-    }
-    
-    .config-panel {
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
-    }
-    
-    .config-panel-header {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-    }
-    
-    .config-icon {
-        font-size: 0.875rem;
-    }
-    
-    .config-label {
-        font-size: 0.8125rem;
-        font-weight: 600;
-        color: #374151;
-    }
-    
-    .config-source {
-        margin-left: auto;
-        font-size: 0.6875rem;
-        font-weight: 500;
-        padding: 0.125rem 0.5rem;
-        border-radius: 0.25rem;
-    }
-    
-    .config-source.default {
-        background: #dbeafe;
-        color: #1d4ed8;
-    }
-    
-    .config-source.custom {
-        background: #fef3c7;
-        color: #92400e;
-    }
-    
-    .config-textarea {
-        font-family: 'Consolas', 'Monaco', monospace;
-        font-size: 0.75rem;
-        background: #1e293b;
-        color: #e2e8f0;
-        border: 1px solid #334155;
-        border-radius: 0.5rem;
-        padding: 0.75rem;
-        resize: vertical;
-    }
-    
-    .config-textarea:focus {
-        border-color: #3b82f6;
-        outline: none;
-    }
-    
-    .config-actions {
-        display: flex;
-        gap: 0.5rem;
-        margin-top: 0.75rem;
-    }
-    
-    /* Results */
-    .result-card {
-        border-color: #22c55e;
-    }
-    
-    .result-card .card-header {
-        background: #f0fdf4;
-        border-color: #bbf7d0;
-    }
-    
-    .result-body {
-        padding: 0;
-    }
-    
-    .markdown-content {
-        background: #1e293b;
-        border-radius: 0 0 0.75rem 0.75rem;
-        overflow: hidden;
-    }
-    
-    .markdown-content pre {
-        margin: 0;
-        padding: 1.5rem;
-        background: transparent;
-    }
-    
-    .markdown-content code {
-        font-family: 'Consolas', 'Monaco', monospace;
-        font-size: 0.875rem;
-        line-height: 1.6;
-    }
-    
-    /* Empty State */
-    .empty-results {
-        background: #f8fafc;
-        border: 2px dashed #e2e8f0;
-        border-radius: 0.75rem;
-        padding: 3rem 2rem;
-        text-align: center;
-    }
-    
-    .empty-icon {
-        font-size: 3rem;
-        margin-bottom: 1rem;
-        opacity: 0.5;
-    }
-    
-    .empty-results h3 {
-        font-size: 1.125rem;
-        font-weight: 600;
-        color: #64748b;
-        margin: 0 0 0.5rem 0;
-    }
-    
-    .empty-results p {
-        color: #94a3b8;
-        margin: 0;
-        font-size: 0.875rem;
-    }
-</style>
-
 @code {
+    // ========================================
+    // Fields - Component State
+    // ========================================
+    
+    // Database schema JSON (can be overridden from setup values)
     private string databaseSchema = string.Empty;
+    
+    // LLM configuration JSON (can be overridden from setup values)
     private string llmConfig = string.Empty;
+    
+    // Toggle for showing/hiding advanced configuration panel
     private bool showAdvanced = false;
+    
+    // Flag indicating if user has modified schema from setup defaults
     private bool useCustomSchema = false;
+    
+    // Flag indicating if user has modified LLM config from setup defaults
     private bool useCustomConfig = false;
     
+    // Markdown pipeline with syntax highlighting for SQL rendering
     private static readonly MarkdownPipeline pipeline = new MarkdownPipelineBuilder()
         .UseSyntaxHighlighting()
         .Build();
 
+    // ========================================
+    // Properties - Public State
+    // ========================================
+    
+    // User's natural language query input (default query provided)
     public string NaturalLanguageInput { get; set; } = "Show me the top 10 selling albums of all time with their sales numbers";
+    
+    // Raw SQL generated by LLM
     public string GeneratedSQL { get; set; } = string.Empty;
+    
+    // HTML-rendered SQL with syntax highlighting (from Markdown)
     public string GeneratedSQLHtml { get; set; } = string.Empty;
+    
+    // Loading state for SQL generation button
     public bool IsGenerating { get; set; } = false;
 
+    // Flag tracking if AppState has been loaded from browser storage
     private bool _stateLoaded = false;
 
+    // Computed property checking if configuration is complete and ready for testing
     private bool IsConfigurationReady => _stateLoaded && appState.HasSchema && appState.HasConfiguration;
 
+    // ========================================
+    // Lifecycle Methods
+    // ========================================
+    
+    /// <summary>
+    /// Initialize component on first render.
+    /// Loads schema and LLM config from AppState (setup wizard values).
+    /// </summary>
     protected override void OnInitialized()
     {
         // Load from AppState (setup wizard values)
         LoadFromAppState();
         
-        // SET BREAKPOINT HERE - Check appState.HasSchema and appState.HasConfiguration values
+        // Debug checkpoint - Check if configuration exists
+        // SET BREAKPOINT HERE to inspect AppState configuration status
         var hasSchema = appState.HasSchema;
         var hasConfig = appState.HasConfiguration;
         var tableCount = appState.DatabaseSchema?.Tables.Count ?? 0;
         var configCount = appState.ConfiguredTablesCount;
     }
 
+    /// <summary>
+    /// Loads database schema and LLM configuration from AppState.
+    /// Called on initialization and when resetting to defaults.
+    /// </summary>
     private void LoadFromAppState()
     {
+        // Load schema JSON if available in AppState
         if (appState.HasSchema)
         {
             databaseSchema = appState.SchemaJson;
         }
         
+        // Serialize and load LLM configuration if available
         if (appState.HasConfiguration)
         {
             var options = new JsonSerializerOptions 
@@ -671,40 +331,66 @@ else
             llmConfig = JsonSerializer.Serialize(appState.LlmConfiguration, options);
         }
         
+        // Reset custom flags (using setup values, not custom)
         useCustomSchema = false;
         useCustomConfig = false;
     }
 
+    // ========================================
+    // UI Event Handlers
+    // ========================================
+    
+    /// <summary>
+    /// Toggles visibility of advanced configuration panel.
+    /// </summary>
     private void ToggleAdvanced()
     {
         showAdvanced = !showAdvanced;
     }
 
+    /// <summary>
+    /// Event handler for schema textarea input.
+    /// Marks schema as custom-modified when user types.
+    /// </summary>
     private void OnSchemaChanged(ChangeEventArgs e)
     {
         useCustomSchema = true;
     }
 
+    /// <summary>
+    /// Event handler for LLM config textarea input.
+    /// Marks config as custom-modified when user types.
+    /// </summary>
     private void OnConfigChanged(ChangeEventArgs e)
     {
         useCustomConfig = true;
     }
 
+    /// <summary>
+    /// Resets schema and LLM config to values from setup wizard.
+    /// Clears custom modification flags.
+    /// </summary>
     private void ResetToDefaults()
     {
         LoadFromAppState();
     }
 
+    /// <summary>
+    /// Loads schema and LLM config from local JSON files.
+    /// Expects database_schema.json and llm_config.json in working directory.
+    /// </summary>
     private void LoadFromFiles()
     {
         try
         {
+            // Attempt to load database schema from file
             if (File.Exists("database_schema.json"))
             {
                 databaseSchema = File.ReadAllText("database_schema.json");
                 useCustomSchema = true;
             }
             
+            // Attempt to load LLM config from file
             if (File.Exists("llm_config.json"))
             {
                 llmConfig = File.ReadAllText("llm_config.json");
@@ -713,36 +399,49 @@ else
         }
         catch (Exception ex)
         {
-            // Handle file read errors silently for now
+            // Silently handle file read errors (files may not exist)
             Console.WriteLine($"Error loading files: {ex.Message}");
         }
     }
 
+    // ========================================
+    // Core Functionality
+    // ========================================
+    
+    /// <summary>
+    /// Generates SQL from natural language query using LLM.
+    /// Adds query to history, stores result in AppState, and renders with syntax highlighting.
+    /// </summary>
+    /// <param name="args">Mouse event args (optional, allows programmatic triggering)</param>
     private async Task GenerateSQL(MouseEventArgs? args = null)
     {
+        // Validate input exists
         if (string.IsNullOrWhiteSpace(NaturalLanguageInput))
             return;
 
+        // Set loading state and refresh UI
         IsGenerating = true;
         StateHasChanged();
 
         try
         {
+            // Call LLM generator with current schema and config
             GeneratedSQL = await DataGenerator.GenerateStatementFromNlq(NaturalLanguageInput, databaseSchema, llmConfig);
             
-            // Add query to history and save state
+            // Add query to history and persist to browser storage
             await appState.AddQueryToHistoryAsync(NaturalLanguageInput);
             
-            // Store in AppState for SQL Results page
+            // Store SQL in AppState for SQLResults page to execute
             appState.SQLString = GeneratedSQL;
             
-            // Convert SQL to markdown with syntax highlighting - only add code fences if not already present
+            // Convert SQL to markdown with syntax highlighting
+            // Only add code fences if not already present
             string markdownContent = GeneratedSQL.StartsWith("```")
                                 ? GeneratedSQL
                                 : $"```sql\n{GeneratedSQL}\n```";
             GeneratedSQLHtml = Markdown.ToHtml(markdownContent, pipeline);
 
-            // Track test completion
+            // Track test completion metrics in AppState
             appState.TestCompleted = true;
             appState.LastTestRun = DateTime.Now;
             appState.LastTestQueryCount = (appState.LastTestQueryCount ?? 0) + 1;
@@ -750,8 +449,10 @@ else
         }
         catch (Exception ex)
         {
+            // Handle LLM generation errors by displaying error as SQL comment
             GeneratedSQL = $"-- Error generating SQL:\n-- {ex.Message}";
             
+            // Render error message with syntax highlighting
             string errorMarkdown = GeneratedSQL.StartsWith("```")
                 ? GeneratedSQL
                 : $"```sql\n{GeneratedSQL}\n```";
@@ -759,29 +460,48 @@ else
         }
         finally
         {
+            // Clear loading state and refresh UI
             IsGenerating = false;
             StateHasChanged();
         }
     }
 
+    /// <summary>
+    /// Copies generated SQL to clipboard using JavaScript interop.
+    /// Falls back to legacy method for older browsers.
+    /// </summary>
     private async Task CopyToClipboard()
     {
         try
         {
+            // Use modern Clipboard API
             await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", GeneratedSQL);
         }
         catch
         {
-            // Fallback for older browsers
+            // Fallback for older browsers without Clipboard API
             await JSRuntime.InvokeVoidAsync("fallbackCopyToClipboard", GeneratedSQL);
         }
     }
 
+    /// <summary>
+    /// Navigates to SQL Results page to execute the generated SQL.
+    /// SQL is already stored in AppState.SQLString.
+    /// </summary>
     private void ExecuteResults()
     {
         navigationManager.NavigateTo("/sqlresults");
     }
 
+    // ========================================
+    // Query History Management
+    // ========================================
+    
+    /// <summary>
+    /// Loads a historical query into the input field.
+    /// Allows user to re-run or modify previous queries.
+    /// </summary>
+    /// <param name="query">The query text to load</param>
     private void SelectHistoryQuery(string query)
     {
         if (!string.IsNullOrEmpty(query))
@@ -791,6 +511,10 @@ else
         }
     }
 
+    /// <summary>
+    /// Removes a query from history and persists the change.
+    /// </summary>
+    /// <param name="query">The query text to remove</param>
     private async Task RemoveFromHistory(string query)
     {
         appState.QueryHistory.Remove(query);
@@ -798,22 +522,43 @@ else
         StateHasChanged();
     }
 
+    // ========================================
+    // Lifecycle - Post-Render
+    // ========================================
+    
+    /// <summary>
+    /// Called after component renders.
+    /// On first render, initializes AppState and loads query history from browser storage.
+    /// </summary>
+    /// <param name="firstRender">True if this is the first render</param>
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
             Console.WriteLine("TestRuntime: OnAfterRenderAsync - first render, loading query history");
             
+            // Initialize AppState with JSRuntime for browser storage access
             appState.Initialize(JSRuntime);
+            
+            // Load persisted state (query history, etc.) from browser storage
             await appState.LoadStateAsync();
             
             Console.WriteLine($"TestRuntime: Query history count after load: {appState.QueryHistory.Count}");
             
+            // Mark state as loaded and re-render to show configuration status
             _stateLoaded = true;
             StateHasChanged();
         }
     }
 
+    // ========================================
+    // Lifecycle - Disposal
+    // ========================================
+    
+    /// <summary>
+    /// Cleanup when component is disposed.
+    /// State saving happens when history changes, so no action needed here.
+    /// </summary>
     public ValueTask DisposeAsync()
     {
         // No need to save on dispose - saves happen when history changes

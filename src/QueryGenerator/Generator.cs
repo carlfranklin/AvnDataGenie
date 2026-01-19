@@ -1,23 +1,40 @@
 ﻿using Microsoft.Data.SqlClient;
-using QueryGenerator.Models;
+using SchemaGenerator.Models;
 
-namespace QueryGenerator;
+namespace SchemaGenerator;
 
+/// <summary>
+/// Database schema extraction engine that reads SQL Server metadata.
+/// Queries system catalogs and information schema views to build a complete
+/// DatabaseSchema object representing tables, columns, keys, and indexes.
+/// </summary>
 public class Generator
 {
+	/// <summary>
+	/// Generates a complete database schema by interrogating SQL Server metadata.
+	/// Connects to the specified database and extracts all structural information
+	/// needed for LLM-based query generation.
+	/// </summary>
+	/// <param name="connectionString">SQL Server connection string with database specified</param>
+	/// <returns>Complete DatabaseSchema with all tables, columns, keys, and indexes</returns>
+	/// <exception cref="SqlException">Thrown when database connection or query execution fails</exception>
 	public async Task<DatabaseSchema> GenerateDatabaseSchemaAsync(string connectionString)
 	{
 		var schema = new DatabaseSchema();
 
+		// Open connection to target database
 		using var connection = new SqlConnection(connectionString);
 		await connection.OpenAsync();
 
+		// Capture database identification from active connection
 		schema.DatabaseName = connection.Database;
 		schema.ServerName = connection.DataSource;
 		schema.GeneratedAt = DateTime.UtcNow;
 
+		// Get list of all user tables (excludes system tables)
 		var tables = await GetTablesAsync(connection);
 
+		// For each table, extract complete metadata
 		foreach (var table in tables)
 		{
 			var tableSchema = new TableSchema
@@ -36,10 +53,17 @@ public class Generator
 		return schema;
 	}
 
+	/// <summary>
+	/// Retrieves list of all user tables in the database.
+	/// Excludes system tables and views, returning only base tables.
+	/// </summary>
+	/// <param name="connection">Active SQL Server connection</param>
+	/// <returns>List of schema/table name tuples</returns>
 	async Task<List<(string SchemaName, string TableName)>> GetTablesAsync(SqlConnection connection)
 	{
 		var tables = new List<(string, string)>();
 
+		// Query INFORMATION_SCHEMA to get all base tables (not views)
 		var query = @"
         SELECT TABLE_SCHEMA, TABLE_NAME 
         FROM INFORMATION_SCHEMA.TABLES 
@@ -57,10 +81,19 @@ public class Generator
 		return tables;
 	}
 
+	/// <summary>
+	/// Retrieves all column definitions for a specific table.
+	/// Includes data types, nullability, defaults, and ordinal positions.
+	/// </summary>
+	/// <param name="connection">Active SQL Server connection</param>
+	/// <param name="schemaName">Schema name (e.g., "dbo")</param>
+	/// <param name="tableName">Table name</param>
+	/// <returns>List of ColumnSchema objects ordered by position in table</returns>
 	async Task<List<ColumnSchema>> GetColumnsAsync(SqlConnection connection, string schemaName, string tableName)
 	{
 		var columns = new List<ColumnSchema>();
 
+		// Query INFORMATION_SCHEMA.COLUMNS for complete column metadata
 		var query = @"
         SELECT 
             c.COLUMN_NAME,
@@ -87,9 +120,9 @@ public class Generator
 			{
 				ColumnName = reader.GetString(0),
 				DataType = reader.GetString(1),
-				MaxLength = reader.IsDBNull(2) ? null : reader.GetInt32(2),
-				NumericPrecision = reader.IsDBNull(3) ? null : reader.GetByte(3),
-				NumericScale = reader.IsDBNull(4) ? null : reader.GetInt32(4),
+				MaxLength = reader.IsDBNull(2) ? null : reader.GetInt32(2),  // For varchar, nvarchar, etc.
+				NumericPrecision = reader.IsDBNull(3) ? null : reader.GetByte(3),  // For decimal, numeric
+				NumericScale = reader.IsDBNull(4) ? null : reader.GetInt32(4),  // Decimal places
 				IsNullable = reader.GetString(5) == "YES",
 				DefaultValue = reader.IsDBNull(6) ? null : reader.GetString(6),
 				OrdinalPosition = reader.GetInt32(7)
@@ -99,8 +132,17 @@ public class Generator
 		return columns;
 	}
 
+	/// <summary>
+	/// Retrieves the primary key constraint for a table, if one exists.
+	/// Handles composite primary keys (multiple columns).
+	/// </summary>
+	/// <param name="connection">Active SQL Server connection</param>
+	/// <param name="schemaName">Schema name</param>
+	/// <param name="tableName">Table name</param>
+	/// <returns>PrimaryKeySchema if table has a PK, otherwise null</returns>
 	async Task<PrimaryKeySchema?> GetPrimaryKeyAsync(SqlConnection connection, string schemaName, string tableName)
 	{
+		// Join TABLE_CONSTRAINTS and KEY_COLUMN_USAGE to get PK details
 		var query = @"
         SELECT 
             kc.CONSTRAINT_NAME,
@@ -124,12 +166,14 @@ public class Generator
 		string? constraintName = null;
 		var columns = new List<string>();
 
+		// Collect all columns that comprise the primary key
 		while (await reader.ReadAsync())
 		{
-			constraintName ??= reader.GetString(0);
-			columns.Add(reader.GetString(1));
+			constraintName ??= reader.GetString(0);  // Constraint name (same for all rows)
+			columns.Add(reader.GetString(1));  // Column name
 		}
 
+		// Return null if table has no primary key
 		return constraintName != null ? new PrimaryKeySchema
 		{
 			ConstraintName = constraintName,
@@ -137,10 +181,20 @@ public class Generator
 		} : null;
 	}
 
+	/// <summary>
+	/// Retrieves all foreign key relationships for a table.
+	/// Handles composite foreign keys and multi-column relationships.
+	/// </summary>
+	/// <param name="connection">Active SQL Server connection</param>
+	/// <param name="schemaName">Schema name</param>
+	/// <param name="tableName">Table name</param>
+	/// <returns>List of ForeignKeySchema objects representing relationships to other tables</returns>
 	async Task<List<ForeignKeySchema>> GetForeignKeysAsync(SqlConnection connection, string schemaName, string tableName)
 	{
 		var foreignKeys = new List<ForeignKeySchema>();
 
+		// Query sys.foreign_keys and sys.foreign_key_columns for FK metadata
+		// System views provide more reliable data than INFORMATION_SCHEMA for FKs
 		var query = @"
         SELECT 
             fk.name AS CONSTRAINT_NAME,
@@ -161,12 +215,14 @@ public class Generator
 
 		using var reader = await command.ExecuteReaderAsync();
 
+		// Use dictionary to group columns by constraint name (for composite FKs)
 		var fkDict = new Dictionary<string, ForeignKeySchema>();
 
 		while (await reader.ReadAsync())
 		{
 			var constraintName = reader.GetString(0);
 
+			// Create new FK entry if this is the first column in the constraint
 			if (!fkDict.ContainsKey(constraintName))
 			{
 				fkDict[constraintName] = new ForeignKeySchema
@@ -179,6 +235,7 @@ public class Generator
 				};
 			}
 
+			// Add this column pair to the FK (handles composite keys)
 			fkDict[constraintName].Columns.Add(reader.GetString(3));
 			fkDict[constraintName].ReferencedColumns.Add(reader.GetString(4));
 		}
@@ -186,10 +243,20 @@ public class Generator
 		return fkDict.Values.ToList();
 	}
 
+	/// <summary>
+	/// Retrieves all indexes defined on a table.
+	/// Includes clustered, nonclustered, and unique indexes with their column composition.
+	/// </summary>
+	/// <param name="connection">Active SQL Server connection</param>
+	/// <param name="schemaName">Schema name</param>
+	/// <param name="tableName">Table name</param>
+	/// <returns>List of IndexSchema objects with column-level details</returns>
 	async Task<List<IndexSchema>> GetIndexesAsync(SqlConnection connection, string schemaName, string tableName)
 	{
 		var indexes = new List<IndexSchema>();
 
+		// Query sys.indexes and sys.index_columns for index metadata
+		// Excludes heap indexes (name IS NULL)
 		var query = @"
         SELECT 
             i.name AS INDEX_NAME,
@@ -212,12 +279,14 @@ public class Generator
 
 		using var reader = await command.ExecuteReaderAsync();
 
+		// Use dictionary to group columns by index name (for composite indexes)
 		var indexDict = new Dictionary<string, IndexSchema>();
 
 		while (await reader.ReadAsync())
 		{
 			var indexName = reader.GetString(0);
 
+			// Create new index entry if this is the first column in the index
 			if (!indexDict.ContainsKey(indexName))
 			{
 				indexDict[indexName] = new IndexSchema
@@ -225,15 +294,16 @@ public class Generator
 					IndexName = indexName,
 					IsUnique = reader.GetBoolean(1),
 					IsPrimaryKey = reader.GetBoolean(2),
-					IndexType = reader.GetString(3),
+					IndexType = reader.GetString(3),  // CLUSTERED, NONCLUSTERED, etc.
 					Columns = new List<IndexColumnSchema>()
 				};
 			}
 
+			// Add this column to the index with its sort direction
 			indexDict[indexName].Columns.Add(new IndexColumnSchema
 			{
 				ColumnName = reader.GetString(4),
-				IsDescending = reader.GetBoolean(5)
+				IsDescending = reader.GetBoolean(5)  // true = DESC, false = ASC
 			});
 		}
 

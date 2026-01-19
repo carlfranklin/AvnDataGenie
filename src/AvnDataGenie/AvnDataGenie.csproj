@@ -21,7 +21,7 @@
   </ItemGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\QueryGenerator\QueryGenerator.csproj" />
+		<ProjectReference Include="..\QueryGenerator\SchemaGenerator.csproj" />
 	</ItemGroup>
 
 </Project>

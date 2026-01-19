@@ -11,7 +11,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\AvnDataGenie\AvnDataGenie.csproj" />
-    <ProjectReference Include="..\QueryGenerator\QueryGenerator.csproj" />
+    <ProjectReference Include="..\QueryGenerator\SchemaGenerator.csproj" />
     <ProjectReference Include="..\ServiceDefaults\ServiceDefaults.csproj" />
   </ItemGroup>
 

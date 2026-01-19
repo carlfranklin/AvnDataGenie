@@ -112,7 +112,7 @@ public static class ApplicationExtensions
 		
 		// TODO: Add other AvnDataGenie services here as needed
 		services.AddScoped<Generator>();
-		services.AddScoped<QueryGenerator.Generator>();
+		services.AddScoped<SchemaGenerator.Generator>();
 
 		return services;
 	}

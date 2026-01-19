@@ -1,3 +1,24 @@
+@* 
+    ========================================
+    Component: SQLResults
+    ========================================
+    Purpose: Executes LLM-generated SQL queries and displays results in a table format.
+    
+    Key Features:
+    - Automatic query execution on page load
+    - Configurable connection string (stored in AppState)
+    - Real-time result display with scrollable table
+    - Error handling with user-friendly messages
+    - Column name formatting for readability
+    
+    Dependencies:
+    - AppState (injected) - Stores SQL query and connection string
+    - NavigationManager (injected) - Page navigation
+    - Microsoft.Data.SqlClient - Database connectivity
+    
+    Route: /sqlresults
+    ========================================
+*@
 @page "/sqlresults"
 @using Microsoft.Data.SqlClient
 @using System.Data
@@ -15,6 +36,7 @@
         </div>
     </div>
 
+    @* Show warning if no SQL query is available in AppState *@
     @if (!HasSqlString)
     {
         <div class="alert alert-warning" role="alert">
@@ -26,6 +48,7 @@
     }
     else
     {
+        @* Display the SQL query that will be/was executed *@
         <div class="row mb-3">
             <div class="col-12">
                 <div class="card">
@@ -41,12 +64,14 @@
             </div>
         </div>
 
+        @* Connection string input and execute button *@
         <div class="row mb-3">
             <div class="col-md-8">
                 <label for="connectionString" class="form-label">Connection String:</label>
                 <input type="text" id="connectionString" class="form-control" @bind="connectionString" />
             </div>
             <div class="col-md-4 d-flex align-items-end">
+                @* Execute button with loading state indicator *@
                 <button class="btn btn-primary w-100" @onclick="ExecuteQuery" disabled="@isExecuting">
                     @if (isExecuting)
                     {
@@ -62,6 +87,7 @@
             </div>
         </div>
 
+        @* Display error message if query execution failed *@
         @if (!string.IsNullOrEmpty(errorMessage))
         {
             <div class="alert alert-danger" role="alert">
@@ -69,6 +95,7 @@
             </div>
         }
 
+        @* Display query results in a scrollable table *@
         @if (resultData != null && resultData.Rows.Count > 0)
         {
             <div class="row">
@@ -80,10 +107,12 @@
                             </h5>
                         </div>
                         <div class="card-body p-0">
+                            @* Scrollable table container (max 600px height) *@
                             <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
                                 <table class="table table-striped table-hover mb-0">
                                     <thead>
                                         <tr>
+                                            @* Render column headers with formatted names *@
                                             @foreach (DataColumn column in resultData.Columns)
                                             {
                                                 <th>@FormatColumnName(column.ColumnName)</th>
@@ -91,6 +120,7 @@
                                         </tr>
                                     </thead>
                                     <tbody>
+                                        @* Render data rows *@
                                         @foreach (DataRow row in resultData.Rows)
                                         {
                                             <tr>
@@ -110,6 +140,7 @@
         }
         else if (executionComplete && (resultData == null || resultData.Rows.Count == 0))
         {
+            @* Show info message when query returns no rows *@
             <div class="alert alert-info" role="alert">
                 <i class="bi bi-info-circle"></i> Query executed successfully but returned no results.
             </div>
@@ -118,51 +149,72 @@
 </div>
 
 @code {
+    // Connection string for SQL Server (editable by user)
     private string connectionString = string.Empty;
+    
+    // DataTable holding query results
     private DataTable? resultData;
+    
+    // Error message to display if query execution fails
     private string errorMessage = string.Empty;
+    
+    // Loading state indicator
     private bool isExecuting = false;
+    
+    // Flag indicating query has completed (success or failure)
     private bool executionComplete = false;
 
+    // Computed property to check if SQL query exists in AppState
     private bool HasSqlString => !string.IsNullOrWhiteSpace(appState.SQLString);
 
+    /// <summary>
+    /// Initialize component on page load.
+    /// Loads connection string from AppState and auto-executes the query.
+    /// </summary>
     protected override async Task OnInitializedAsync()
     {
-        // Use connection string from AppState if available
+        // Use connection string from AppState if available (set on Home page)
         if (!string.IsNullOrEmpty(appState.ConnectionString))
         {
             connectionString = appState.ConnectionString;
         }
         else
         {
-            // Default fallback
+            // Default fallback connection string for Chinook database
             connectionString = "Data Source=(localdb)\\MSSQLLocalDB;Initial Catalog=Chinook;Integrated Security=True;Connect Timeout=30;Encrypt=True;Trust Server Certificate=False;Application Intent=ReadWrite;Multi Subnet Failover=False;Command Timeout=30";
         }
         
+        // If no SQL query is available, show warning message instead of executing
         if (!HasSqlString)
         {
-            // No SQL string available, user will be prompted to go back
             return;
         }
         
-        // Auto-execute the query on page load
+        // Auto-execute the query on page load for immediate results
         await ExecuteQuery();
     }
 
+    /// <summary>
+    /// Executes the SQL query stored in AppState against the configured database.
+    /// Loads results into a DataTable for display in the UI.
+    /// </summary>
     private async Task ExecuteQuery()
     {
+        // Validate connection string
         if (string.IsNullOrWhiteSpace(connectionString))
         {
             errorMessage = "Please enter a connection string.";
             return;
         }
 
+        // Validate SQL query exists
         if (string.IsNullOrWhiteSpace(appState.SQLString))
         {
             errorMessage = "No SQL query to execute.";
             return;
         }
 
+        // Set loading state and clear previous results
         isExecuting = true;
         executionComplete = false;
         errorMessage = string.Empty;
@@ -171,15 +223,19 @@
 
         try
         {
+            // Open database connection
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
 
+            // Create command with the LLM-generated SQL
             using var command = new SqlCommand(appState.SQLString, connection);
             command.CommandType = CommandType.Text;
-            command.CommandTimeout = 30;
+            command.CommandTimeout = 30;  // 30 second timeout
 
+            // Execute query and read results
             using var reader = await command.ExecuteReaderAsync();
             
+            // Load results into DataTable for easy display
             resultData = new DataTable();
             resultData.Load(reader);
 
@@ -187,26 +243,35 @@
         }
         catch (Exception ex)
         {
+            // Capture and display any SQL or connection errors
             errorMessage = ex.Message;
             executionComplete = false;
         }
         finally
         {
+            // Clear loading state and refresh UI
             isExecuting = false;
             StateHasChanged();
         }
     }
 
+    /// <summary>
+    /// Formats column names for better readability in the UI.
+    /// Converts "CustomerID" to "Customer ID", "FirstName" to "First Name", etc.
+    /// </summary>
+    /// <param name="columnName">Raw column name from database</param>
+    /// <returns>Formatted column name with spaces before capital letters</returns>
     private string FormatColumnName(string columnName)
     {
         if (string.IsNullOrWhiteSpace(columnName))
             return columnName;
 
         // Insert space before capital letters (except the first one)
+        // Example: "CustomerID" → "Customer ID"
         var result = System.Text.RegularExpressions.Regex.Replace(
             columnName, 
-            "(?<!^)([A-Z])", 
-            " $1"
+            "(?<!^)([A-Z])",  // Match capitals not at the start
+            " $1"  // Add space before the capital
         );
 
         return result;

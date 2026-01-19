@@ -1,8 +1,32 @@
+@* 
+    ========================================
+    Component: Home (Database Schema)
+    ========================================
+    Purpose: Landing page for database schema generation.
+            Allows users to connect to SQL Server and extract database schema
+            or load previously saved schema from file.
+    
+    Key Features:
+    - SQL Server connection string input
+    - Automatic schema generation from database
+    - Schema file loading/saving
+    - Schema deletion
+    - Navigation to LLM configuration
+    - Persistent schema storage (database_schema.json)
+    
+    Dependencies:
+    - SchemaGenerator.Generator (injected) - Database schema extraction
+    - AppState (injected) - Application state management
+    - NavigationManager (injected) - Page navigation
+    
+    Route: / (root/home page)
+    ========================================
+*@
 @page "/"
-@using QueryGenerator
-@using QueryGenerator.Models
+@using SchemaGenerator
+@using SchemaGenerator.Models
 @using System.Text.Json
-@inject Generator generator
+@inject SchemaGenerator.Generator generator
 @inject AppState appState
 @inject NavigationManager navigationManager
 
@@ -10,6 +34,7 @@
 
 <PageTitle>AvnDataGenie - Database Schema</PageTitle>
 
+@* Page header with title and description *@
 <div class="page-header">
     <div class="page-header-content">
         <h1 class="page-title">Database Schema</h1>
@@ -19,6 +44,7 @@
 
 <div class="content-grid">
     <div class="main-card">
+        @* Connection Settings Card *@
         <div class="card">
             <div class="card-header">
                 <h2 class="card-title">
@@ -27,6 +53,7 @@
                 </h2>
             </div>
             <div class="card-body">
+                @* SQL Server connection string input *@
                 <div class="form-group">
                     <label for="connectionString" class="form-label">SQL Server Connection String</label>
                     <textarea id="connectionString"
@@ -37,7 +64,9 @@
                     <small class="form-text text-muted">The connection string will be used to extract the database schema.</small>
                 </div>
 
+                @* Action buttons for schema generation and loading *@
                 <div class="button-group">
+                    @* Generate schema from database connection *@
                     <button class="btn btn-primary btn-lg" @onclick="GenerateSchema" disabled="@isLoading">
                         @if (isLoading)
                         {
@@ -51,6 +80,7 @@
                         }
                     </button>
 
+                    @* Load schema from existing file (disabled if file doesn't exist) *@
                     <button class="btn btn-outline-secondary btn-lg" @onclick="LoadSchema" disabled="@LoadSchemaButtonDisabled">
                         <span class="btn-icon">📂</span>
                         <span>Load Existing</span>
@@ -59,6 +89,7 @@
             </div>
         </div>
 
+        @* Error message display *@
         @if (!string.IsNullOrEmpty(errorMessage))
         {
             <div class="alert alert-danger mt-3" role="alert">
@@ -70,6 +101,7 @@
             </div>
         }
 
+        @* Schema Output Card (only shown when schema exists) *@
         @if (!string.IsNullOrEmpty(appState.SchemaJson))
         {
             <div class="card mt-4">
@@ -78,16 +110,20 @@
                         <span class="card-icon">📋</span>
                         Schema Output
                     </h2>
+                    @* Schema management buttons *@
                     <div class="schema-actions">
+                        @* Delete schema file and clear state *@
                         <button class="btn btn-outline-danger btn-sm" @onclick="DeleteSchema">
                             <span>🗑️</span> Delete
                         </button>
+                        @* Navigate to LLM configuration page *@
                         <button class="btn btn-success btn-sm" @onclick="GoToConfigurePage">
                             <span>⚙️</span> Configure LLM
                         </button>
                     </div>
                 </div>
                 <div class="card-body">
+                    @* Read-only textarea displaying the generated schema JSON *@
                     <textarea id="schemaOutput"
                           class="form-control schema-output"
                           rows="20"
@@ -100,176 +136,137 @@
 
 </div>
 
-<style>
-    .page-header {
-        margin-bottom: 2rem;
-    }
-    
-    .page-title {
-        font-size: 1.75rem;
-        font-weight: 700;
-        color: #1e293b;
-        margin: 0 0 0.5rem 0;
-    }
-    
-    .page-description {
-        color: #64748b;
-        margin: 0;
-        font-size: 1rem;
-    }
-    
-    .content-grid {
-        max-width: 900px;
-    }
-    
-    .card {
-        background: #ffffff;
-        border: 1px solid #e2e8f0;
-        border-radius: 0.75rem;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-    }
-    
-    .card-header {
-        padding: 1rem 1.5rem;
-        border-bottom: 1px solid #e2e8f0;
-        background: #f8fafc;
-        border-radius: 0.75rem 0.75rem 0 0;
-    }
-    
-    .card-title {
-        font-size: 1rem;
-        font-weight: 600;
-        color: #1e293b;
-        margin: 0;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-    }
-    
-    .card-icon {
-        font-size: 1.125rem;
-    }
-    
-    .card-body {
-        padding: 1.5rem;
-    }
-    
-    .form-group {
-        margin-bottom: 1.5rem;
-    }
-    
-    .form-label {
-        font-weight: 600;
-        color: #374151;
-        margin-bottom: 0.5rem;
-        display: block;
-    }
-    
-    .connection-input {
-        font-family: 'Consolas', 'Monaco', monospace;
-        font-size: 0.875rem;
-        background: #f8fafc;
-        border: 1px solid #e2e8f0;
-        border-radius: 0.5rem;
-        padding: 0.75rem 1rem;
-    }
-    
-    .connection-input:focus {
-        background: #ffffff;
-        border-color: #3b82f6;
-        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-    }
-    
-    .form-text {
-        font-size: 0.8125rem;
-        margin-top: 0.5rem;
-    }
-    
-    .button-group {
-        display: flex;
-        gap: 0.75rem;
-        flex-wrap: wrap;
-    }
-    
-    .btn {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-        font-weight: 500;
-        border-radius: 0.5rem;
-        transition: all 0.15s ease;
-    }
-    
-    .btn-lg {
-        padding: 0.75rem 1.5rem;
-    }
-    
-    .btn-icon {
-        font-size: 1rem;
-    }
-    
-    .btn-primary {
-        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-        border: none;
-        box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
-    }
-    
-    .btn-primary:hover:not(:disabled) {
-        transform: translateY(-1px);
-        box-shadow: 0 4px 8px rgba(59, 130, 246, 0.4);
-    }
-    
-    .schema-output {
-        font-family: 'Consolas', 'Monaco', monospace;
-        font-size: 0.8125rem;
-        background: #0f172a;
-        color: #e2e8f0;
-        border: none;
-        border-radius: 0.5rem;
-        padding: 1rem;
-    }
-    
-    .schema-actions {
-        display: flex;
-        gap: 0.5rem;
-    }
-    
-    .alert {
-        display: flex;
-        align-items: flex-start;
-        gap: 0.75rem;
-        padding: 1rem;
-        border-radius: 0.5rem;
-    }
-    
-    .alert-icon {
-        font-size: 1.25rem;
-    }
-    
-    .alert-content p {
-        margin: 0.25rem 0 0 0;
-    }
-    
-    /* Side Panel */
-</style>
-
 @code {
+    // ========================================
+    // Fields - Component State
+    // ========================================
+    
+    // Default connection string pointing to local Chinook database
     private string connectionString = "Data Source=(localdb)\\MSSQLLocalDB;Initial Catalog=Chinook;Integrated Security=True;Connect Timeout=30;Encrypt=True;Trust Server Certificate=False;Application Intent=ReadWrite;Multi Subnet Failover=False;Command Timeout=30";
+    
+    // Error message to display to user when operations fail
     private string errorMessage = string.Empty;
+    
+    // Loading state for schema generation button
     private bool isLoading = false;
+    
+    // Save operation status messages (not currently displayed in UI)
     private string saveMessage = string.Empty;
     private string saveError = string.Empty;
 
+    // ========================================
+    // Lifecycle Methods
+    // ========================================
+    
+    /// <summary>
+    /// Initialize component on page load.
+    /// Sets up file paths and loads existing schema/config if available.
+    /// </summary>
+    protected override async Task OnInitializedAsync()
+    {
+        // Set default file paths for schema and config storage
+        appState.SaveFilePath = Path.Combine(Environment.CurrentDirectory, "database_schema.json");
+        appState.ConfigSaveFilePath = Path.Combine(Environment.CurrentDirectory, "llm_config.json");
+        appState.RefreshFileStatus();
+        
+        // Auto-load schema if file exists
+        if (File.Exists(appState.SaveFilePath))
+            await LoadSchema();
+            
+        // Auto-load LLM config if file exists
+        if (File.Exists(appState.ConfigSaveFilePath))
+            await LoadConfig();
+    }
+
+    // ========================================
+    // Schema Operations
+    // ========================================
+    
+    /// <summary>
+    /// Generates database schema by connecting to SQL Server.
+    /// Extracts tables, columns, relationships and saves to file.
+    /// </summary>
+    private async Task GenerateSchema()
+    {
+        // Clear previous messages and state
+        errorMessage = string.Empty;
+        appState.SchemaJson = string.Empty;
+        saveMessage = string.Empty;
+        saveError = string.Empty;
+
+        // Validate connection string is provided
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            errorMessage = "Please enter a connection string.";
+            return;
+        }
+
+        // Set loading state and refresh UI
+        isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            // Call generator to extract schema from database
+            var schema = await generator.GenerateDatabaseSchemaAsync(connectionString);
+
+            // Serialize schema to JSON with formatting
+            var options = new JsonSerializerOptions
+            {
+                WriteIndented = true,
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            };
+
+            // Store schema in AppState
+            appState.SchemaJson = JsonSerializer.Serialize(schema, options);
+            appState.DatabaseSchema = schema;
+            appState.ConnectionString = connectionString;  // Save connection string for later use
+            appState.NotifyStateChanged();
+
+            // Persist schema to file
+            try
+            {
+                await File.WriteAllTextAsync(appState.SaveFilePath, appState.SchemaJson);
+                appState.RefreshFileStatus();
+                saveMessage = $"Successfully saved to: {appState.SaveFilePath}";
+            }
+            catch (Exception ex)
+            {
+                saveError = ex.Message;
+            }
+        }
+        catch (Exception ex)
+        {
+            // Display database connection or extraction errors
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            // Clear loading state and refresh UI
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>
+    /// Loads schema from existing database_schema.json file.
+    /// </summary>
     private async Task LoadSchema()
     {
+        // Check if schema file exists
         if (File.Exists(appState.SaveFilePath))
         {
             try
             {
+                // Read and deserialize schema JSON
                 appState.SchemaJson = await File.ReadAllTextAsync(appState.SaveFilePath);
                 var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
                 appState.DatabaseSchema = JsonSerializer.Deserialize<DatabaseSchema>(appState.SchemaJson, options);
+                
+                // Clear any previous errors
                 errorMessage = string.Empty;
+                
+                // Refresh file metadata and notify state change
                 appState.RefreshFileStatus();
                 appState.NotifyStateChanged();
             }
@@ -284,29 +281,24 @@
         }
     }
 
-    private bool LoadSchemaButtonDisabled
-    {
-        get
-        {
-            return !File.Exists(appState.SaveFilePath);
-        }
-    }
-
-    private async Task GoToConfigurePage()
-    {
-        navigationManager.NavigateTo("/config");
-    }
+    /// <summary>
+    /// Deletes the schema file and clears schema from AppState.
+    /// </summary>
     private async Task DeleteSchema()
     {
+        // Check if schema file exists before attempting deletion
         if (File.Exists(appState.SaveFilePath))
         {
             try
             {
+                // Delete file and clear AppState
                 File.Delete(appState.SaveFilePath);
                 appState.SchemaJson = string.Empty;
                 appState.DatabaseSchema = null;
                 appState.SchemaFileLastModified = null;
                 errorMessage = string.Empty;
+                
+                // Refresh file status and notify state change
                 appState.RefreshFileStatus();
                 appState.NotifyStateChanged();
             }
@@ -321,84 +313,26 @@
         }
     }
 
-    private async Task GenerateSchema()
-    {
-        errorMessage = string.Empty;
-        appState.SchemaJson = string.Empty;
-        saveMessage = string.Empty;
-        saveError = string.Empty;
-
-        if (string.IsNullOrWhiteSpace(connectionString))
-        {
-            errorMessage = "Please enter a connection string.";
-            return;
-        }
-
-        isLoading = true;
-        StateHasChanged();
-
-        try
-        {
-            var schema = await generator.GenerateDatabaseSchemaAsync(connectionString);
-
-            var options = new JsonSerializerOptions
-            {
-                WriteIndented = true,
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-            };
-
-            appState.SchemaJson = JsonSerializer.Serialize(schema, options);
-            appState.DatabaseSchema = schema;
-            appState.ConnectionString = connectionString;  // Save the connection string
-            appState.NotifyStateChanged();
-
-            // save it
-            try
-            {
-                await File.WriteAllTextAsync(appState.SaveFilePath, appState.SchemaJson);
-                appState.RefreshFileStatus();
-                saveMessage = $"Successfully saved to: {appState.SaveFilePath}";
-            }
-            catch (Exception ex)
-            {
-                saveError = ex.Message;
-            }
-        }
-        catch (Exception ex)
-        {
-            errorMessage = ex.Message;
-        }
-        finally
-        {
-            isLoading = false;
-            StateHasChanged();
-        }
-    }
-
-    protected override async Task OnInitializedAsync()
-    {
-        // Set default file paths
-        appState.SaveFilePath = Path.Combine(Environment.CurrentDirectory, "database_schema.json");
-        appState.ConfigSaveFilePath = Path.Combine(Environment.CurrentDirectory, "llm_config.json");
-        appState.RefreshFileStatus();
-        
-        if (File.Exists(appState.SaveFilePath))
-            await LoadSchema();
-            
-        if (File.Exists(appState.ConfigSaveFilePath))
-            await LoadConfig();
-    }
+    // ========================================
+    // Configuration Operations
+    // ========================================
     
+    /// <summary>
+    /// Loads LLM configuration from llm_config.json file.
+    /// Called during initialization if config file exists.
+    /// </summary>
     private async Task LoadConfig()
     {
         try
         {
+            // Read and deserialize LLM configuration
             var json = await File.ReadAllTextAsync(appState.ConfigSaveFilePath);
             var config = JsonSerializer.Deserialize<LlmConfiguration>(json, new JsonSerializerOptions 
             { 
                 PropertyNameCaseInsensitive = true 
             });
             
+            // Update AppState if config was successfully loaded
             if (config != null)
             {
                 appState.LlmConfiguration = config;
@@ -409,7 +343,36 @@
         }
         catch (Exception ex)
         {
+            // Silently log config loading errors (file may not exist on first run)
             Console.WriteLine($"Error loading config: {ex.Message}");
+        }
+    }
+
+    // ========================================
+    // Navigation
+    // ========================================
+    
+    /// <summary>
+    /// Navigates to the LLM configuration page.
+    /// </summary>
+    private async Task GoToConfigurePage()
+    {
+        navigationManager.NavigateTo("/config");
+    }
+
+    // ========================================
+    // Computed Properties
+    // ========================================
+    
+    /// <summary>
+    /// Determines if the "Load Existing" button should be disabled.
+    /// Disabled when no schema file exists.
+    /// </summary>
+    private bool LoadSchemaButtonDisabled
+    {
+        get
+        {
+            return !File.Exists(appState.SaveFilePath);
         }
     }
 }

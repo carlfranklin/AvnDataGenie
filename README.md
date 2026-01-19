@@ -15,6 +15,9 @@ Jeff Fritz and I had been trying to use the various SQL MCP Servers that exist t
 
 We wanted something we could more easily control. Our answer is **AvnDataGenie**.
 
+* **Generate a Database Schema Beforehand**
+  * Rather than give the tool direct access to the database, we generate a JSON file that represents the database schema.
+
 * **Generate Metadata Beforehand**
   * Include a Metadata Management tool so users can:
     * Annotate Tables with descriptions.
@@ -69,31 +72,37 @@ Configure how the LLM interacts with your database through a comprehensive web i
 
 ### Natural Language to SQL Generation
 - **Test Runtime Interface**: Interactive page for testing SQL generation
-- Input natural language queries (e.g., "show me all customers who placed orders in the last 30 days")
+- Input natural language queries (e.g., "show me the top 10 selling albums of all time with their sales numbers")
 - Generate SQL SELECT statements using configured schema and LLM rules
 - Real-time SQL generation with loading indicators
 - Syntax-highlighted SQL output with Markdown rendering
 - Copy generated SQL to clipboard
 - Direct navigation to execute queries
+- **Query History**: Automatically saves and displays recent queries
+  - Select from previously run queries
+  - Remove queries from history
+  - Persists across browser sessions using Protected Browser Storage
 
 ### SQL Query Execution & Results
 - **SQL Results Page**: Execute generated queries against your database
 - Display SQL query with syntax highlighting
-- Configurable connection string for query execution
-- Execute queries with progress indication
+- Uses connection string saved during schema generation
+- Automatic query execution on page load
+- Execute button for manual re-execution
 - **Smart Results Display**:
   - Responsive table with scrollable results
   - Automatic column name formatting (e.g., "AlbumName" → "Album Name")
   - Row count display
   - Handles empty result sets gracefully
   - Error handling with detailed messages
-- Protected navigation - only accessible when SQL has been generated
+- Protected navigation - requires both database schema and LLM configuration
 
 ### Configuration Persistence
-- Save configuration to JSON file
-- Load existing configurations
+- Save database schema to JSON file (`database_schema.json`)
+- Save LLM configuration to JSON file (`llm_config.json`)
+- Auto-load schema and configuration on startup
 - Export configurations with timestamps
-- Auto-load last configuration on startup
+- Protected Browser Storage for query history and application state
 
 ## Getting Started
 
@@ -266,24 +275,27 @@ dotnet user-secrets clear
 1. Navigate to **Test Runtime** from the navigation menu
 2. Review the loaded database schema and LLM configuration
 3. Enter a natural language query in plain English:
-   - Example: "Show me all customers who placed orders in the last 30 days"
-   - Example: "Get the top 10 products by sales volume"
+   - Example: "Show me the top 10 selling albums of all time with their sales numbers"
+   - Example: "Get all customers who placed orders in the last 30 days"
    - Example: "List employees hired after January 2020"
 4. Click **Generate SQL**
 5. Review the generated SQL query with syntax highlighting
 6. Use the **Copy** button to copy SQL to clipboard
 7. Click **Execute** to run the query and see results
+8. Your query is automatically saved to the history
+9. Select from previous queries using the history dropdown
+10. Remove queries from history using the **×** button
 
 ### Step 5: Execute Queries and View Results
 
 1. After generating SQL in Test Runtime, click **Execute**
-2. Verify the connection string (defaults to the database used for schema generation)
-3. Click **Execute Query** to run the SQL
-4. View results in a formatted table with:
+2. The SQL Results page automatically executes the query on load
+3. View results in a formatted table with:
    - Friendly column headers (e.g., "Album Name" instead of "AlbumName")
    - Row count
    - Scrollable results for large datasets
-5. The **SQL Results** link appears in the navigation menu only when a query is available
+4. Click **Execute Query** button to manually re-run the query
+5. The **SQL Results** link appears in the navigation menu only when both schema and configuration are loaded
 
 ### Step 6: Export and Share
 
@@ -295,30 +307,34 @@ dotnet user-secrets clear
 
 ```
 src/
-├── AdminApp/               # Blazor web UI for configuration and testing
+├── AdminApp/                         # Blazor web UI for configuration and testing
 │   ├── Components/
 │   │   ├── Pages/
-│   │   │   ├── Home.razor        # Schema generation page
-│   │   │   ├── Config.razor      # Configuration page
-│   │   │   ├── TestRuntime.razor # Natural language query testing
-│   │   │   └── SQLResults.razor  # Query execution and results display
+│   │   │   ├── Home.razor            # Schema generation page
+│   │   │   ├── Home.razor.css        # Scoped styles for Home page
+│   │   │   ├── Config.razor          # LLM configuration page
+│   │   │   ├── TestRuntime.razor     # Natural language query testing
+│   │   │   ├── TestRuntime.razor.css # Scoped styles for Test Runtime page
+│   │   │   ├── SQLResults.razor      # Query execution and results display
+│   │   │   └── SQLResults.razor.css  # Scoped styles for SQL Results page
 │   │   └── Layout/
 │   │       ├── MainLayout.razor
-│   │       └── NavMenu.razor     # Dynamic navigation menu
-│   ├── AppState.cs              # Application state (schema, config, SQL)
+│   │       └── NavMenu.razor         # Dynamic navigation menu
+│   ├── AppState.cs                   # Application state (schema, config, SQL, history)
 │   └── Program.cs
-├── AvnDataGenie/           # Core SQL generation logic
-│   ├── Generator.cs             # Natural language to SQL generator
-│   └── SqlPromptBuilder.cs      # LLM prompt construction
-├── QueryGenerator/         # Database schema extraction
-│   ├── Generator.cs             # Database schema generator
+├── AvnDataGenie/                     # Core SQL generation logic
+│   ├── Generator.cs                  # Natural language to SQL generator
+│   └── SqlPromptBuilder.cs           # LLM prompt construction
+├── SchemaGenerator/                  # Database schema extraction
+│   ├── Generator.cs                  # Database schema generator
 │   └── Models/
-│       ├── DatabaseSchema.cs    # Schema models
+│       ├── DatabaseSchema.cs         # Schema models
 │       ├── TableSchema.cs
 │       ├── ColumnSchema.cs
 │       ├── ForeignKeySchema.cs
-│       └── LlmConfiguration.cs  # Configuration models
-└── ServiceDefaults/        # Shared service configuration
+│       └── LlmConfiguration.cs       # Configuration models
+├── AppHost/                          # .NET Aspire app host for orchestration
+└── ServiceDefaults/                  # Shared service configuration
 ```
 
 ## Configuration File Format
@@ -359,10 +375,13 @@ Contains LLM interaction rules:
 - [x] Database schema generation from SQL Server
 - [x] LLM configuration management (tables, columns, joins, filters, business terms)
 - [x] Natural language to SQL generation
-- [x] Query execution interface
+- [x] Query execution interface with auto-execution
 - [x] Query result visualization with formatted display
 - [x] Integration with Ollama for local LLM support
-- [ ] Query history and favorites
+- [x] Query history with persistence across sessions
+- [x] Comprehensive code documentation and comments
+- [x] Scoped CSS for all Razor components
+- [ ] Query favorites/bookmarks
 - [ ] Support for additional database types (PostgreSQL, MySQL)
 - [ ] Multi-user support with role-based access
 - [ ] Query templates and saved queries
