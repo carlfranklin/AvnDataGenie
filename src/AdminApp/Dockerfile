@@ -5,7 +5,7 @@ WORKDIR /src
 # Copy solution and project files
 COPY ["AdminApp/AdminApp.csproj", "AdminApp/"]
 COPY ["AvnDataGenie/AvnDataGenie.csproj", "AvnDataGenie/"]
-COPY ["QueryGenerator/QueryGenerator.csproj", "QueryGenerator/"]
+COPY ["SchemaGenerator/SchemaGenerator.csproj", "SchemaGenerator/"]
 COPY ["ServiceDefaults/ServiceDefaults.csproj", "ServiceDefaults/"]
 
 # Restore dependencies
