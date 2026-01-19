@@ -58,7 +58,21 @@ else
                               @bind="NaturalLanguageInput" 
                               placeholder="Describe what data you want to retrieve...
 
-Example: Show me the top 10 customers by total order value this year"></textarea>
+    Example: Show the top 10 selling albums of all time with sales numbers"></textarea>
+                    
+                    @if (appState.QueryHistory.Any())
+                    {
+                        <div class="query-history">
+                            <label class="query-history-label">Recent Queries:</label>
+                            <select class="form-control query-history-select" @onchange="SelectHistoryQuery">
+                                <option value="">-- Select a previous query --</option>
+                                @foreach (var query in appState.QueryHistory)
+                                {
+                                    <option value="@query">@(query.Length > 80 ? query.Substring(0, 80) + "..." : query)</option>
+                                }
+                            </select>
+                        </div>
+                    }
                     
                     <div class="query-actions">
                         <button class="btn btn-primary btn-lg" @onclick="GenerateSQL" disabled="@IsGenerating">
@@ -303,6 +317,35 @@ Example: Show me the top 10 customers by total order value this year"></textarea
     
     .query-input::placeholder {
         color: #94a3b8;
+    }
+    
+    .query-history {
+        margin-top: 1rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .query-history-label {
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: #64748b;
+        margin: 0;
+    }
+    
+    .query-history-select {
+        font-size: 0.875rem;
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.5rem;
+        padding: 0.5rem 0.75rem;
+        color: #1e293b;
+    }
+    
+    .query-history-select:focus {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        outline: none;
     }
     
     .query-actions {
@@ -623,6 +666,9 @@ Example: Show me the top 10 customers by total order value this year"></textarea
         {
             GeneratedSQL = await DataGenerator.GenerateStatementFromNlq(NaturalLanguageInput, databaseSchema, llmConfig);
             
+            // Add query to history
+            appState.AddQueryToHistory(NaturalLanguageInput);
+            
             // Store in AppState for SQL Results page
             appState.SQLString = GeneratedSQL;
             
@@ -670,5 +716,15 @@ Example: Show me the top 10 customers by total order value this year"></textarea
     private void ExecuteResults()
     {
         navigationManager.NavigateTo("/sqlresults");
+    }
+
+    private void SelectHistoryQuery(ChangeEventArgs e)
+    {
+        var selectedQuery = e.Value?.ToString();
+        if (!string.IsNullOrEmpty(selectedQuery))
+        {
+            NaturalLanguageInput = selectedQuery;
+            StateHasChanged();
+        }
     }
 }

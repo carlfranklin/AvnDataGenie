@@ -61,6 +61,28 @@ public class AppState
 	public event Action? OnChange;
 	public void NotifyStateChanged() => OnChange?.Invoke();
 	public string SQLString { get; set; } = string.Empty;
+	public string NaturalLanguageQuery { get; set; } = string.Empty;
+
+	// Query history tracking
+	public List<string> QueryHistory { get; set; } = new();
+	
+	public void AddQueryToHistory(string query)
+	{
+		if (string.IsNullOrWhiteSpace(query))
+			return;
+		
+		// Remove if already exists to avoid duplicates
+		QueryHistory.Remove(query);
+		
+		// Add to the beginning of the list (most recent first)
+		QueryHistory.Insert(0, query);
+		
+		// Keep only the last 20 queries
+		if (QueryHistory.Count > 20)
+		{
+			QueryHistory.RemoveAt(QueryHistory.Count - 1);
+		}
+	}
 
 }
 
