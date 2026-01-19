@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>LocalStorage Test</title>
+</head>
+<body>
+    <h1>LocalStorage Test</h1>
+    <button onclick="saveData()">Save Test Data</button>
+    <button onclick="loadData()">Load Test Data</button>
+    <button onclick="clearData()">Clear Data</button>
+    <pre id="output"></pre>
+
+    <script>
+        function saveData() {
+            const data = {
+                test: "Hello World",
+                timestamp: new Date().toISOString(),
+                queryHistory: ["query 1", "query 2", "query 3"]
+            };
+            localStorage.setItem("AppState", JSON.stringify(data));
+            document.getElementById("output").textContent = "Saved: " + JSON.stringify(data, null, 2);
+        }
+
+        function loadData() {
+            const data = localStorage.getItem("AppState");
+            document.getElementById("output").textContent = "Loaded: " + (data || "No data found");
+        }
+
+        function clearData() {
+            localStorage.removeItem("AppState");
+            document.getElementById("output").textContent = "Cleared";
+        }
+
+        // Auto-load on page load
+        window.onload = loadData;
+    </script>
+</body>
+</html>

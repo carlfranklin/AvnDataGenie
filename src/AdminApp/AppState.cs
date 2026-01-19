@@ -1,9 +1,82 @@
-﻿using QueryGenerator.Models;
+﻿using System.Text.Json;
+using Microsoft.JSInterop;
+using QueryGenerator.Models;
 
 namespace AdminApp;
 
 public class AppState
 {
+	private IJSRuntime? _jsRuntime;
+	private const string StorageKey = "AppState_QueryHistory";
+	private bool _isInitialized = false;
+
+	public void Initialize(IJSRuntime jsRuntime)
+	{
+		if (_isInitialized)
+		{
+			Console.WriteLine("AppState: Already initialized, skipping");
+			return;
+		}
+		
+		Console.WriteLine("AppState: Initializing with JSRuntime");
+		_jsRuntime = jsRuntime;
+		_isInitialized = true;
+	}
+
+	public async Task LoadStateAsync()
+	{
+		if (_jsRuntime == null) 
+		{
+			Console.WriteLine("AppState: Cannot load - JSRuntime not initialized");
+			return;
+		}
+
+		try
+		{
+			var json = await _jsRuntime.InvokeAsync<string>("localStorage.getItem", StorageKey);
+			Console.WriteLine($"Loading state... JSON length: {json?.Length ?? 0}");
+			
+			if (!string.IsNullOrEmpty(json))
+			{
+				var history = JsonSerializer.Deserialize<List<string>>(json);
+				if (history != null)
+				{
+					QueryHistory = history;
+					Console.WriteLine($"State loaded successfully. Query history count: {QueryHistory.Count}");
+				}
+			}
+			else
+			{
+				Console.WriteLine("No saved state found.");
+			}
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"Error loading state: {ex.Message}");
+		}
+	}
+
+	public async Task SaveStateAsync()
+	{
+		if (_jsRuntime == null) 
+		{
+			Console.WriteLine("AppState: Cannot save - JSRuntime not initialized");
+			return;
+		}
+
+		try
+		{
+			var json = JsonSerializer.Serialize(QueryHistory);
+			Console.WriteLine($"Saving query history with {QueryHistory.Count} queries, JSON length: {json.Length}");
+			await _jsRuntime.InvokeVoidAsync("localStorage.setItem", StorageKey, json);
+			Console.WriteLine("Query history saved successfully.");
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"Error saving state: {ex.Message}");
+		}
+	}
+
 	public string SaveFilePath { get; set; } = string.Empty;
 	public string SchemaJson { get; set; } = string.Empty;
 	public DatabaseSchema? DatabaseSchema { get; set; }
@@ -60,16 +133,22 @@ public class AppState
 
 	public event Action? OnChange;
 	public void NotifyStateChanged() => OnChange?.Invoke();
+	
 	public string SQLString { get; set; } = string.Empty;
 	public string NaturalLanguageQuery { get; set; } = string.Empty;
 
 	// Query history tracking
 	public List<string> QueryHistory { get; set; } = new();
 	
-	public void AddQueryToHistory(string query)
+	public async Task AddQueryToHistoryAsync(string query)
 	{
+		Console.WriteLine($"AppState: AddQueryToHistoryAsync called with: {query}");
+		
 		if (string.IsNullOrWhiteSpace(query))
+		{
+			Console.WriteLine("AppState: Query is null/whitespace, skipping");
 			return;
+		}
 		
 		// Remove if already exists to avoid duplicates
 		QueryHistory.Remove(query);
@@ -82,6 +161,9 @@ public class AppState
 		{
 			QueryHistory.RemoveAt(QueryHistory.Count - 1);
 		}
+		
+		Console.WriteLine($"AppState: Query history updated, count: {QueryHistory.Count}");
+		await SaveStateAsync();
 	}
 
 }

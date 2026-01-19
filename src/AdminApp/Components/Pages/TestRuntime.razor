@@ -7,6 +7,7 @@
 @using Markdig
 @using Markdig.SyntaxHighlighting
 @using System.Text.Json
+@implements IAsyncDisposable
 
 @rendermode InteractiveServer
 
@@ -28,13 +29,14 @@
         <div class="setup-status">
             <div class="status-item @(appState.HasSchema ? "complete" : "pending")">
                 <span class="status-icon">@(appState.HasSchema ? "✓" : "○")</span>
-                <span>Database Schema</span>
+                <span>Database Schema (@(appState.DatabaseSchema?.Tables.Count ?? 0) tables)</span>
             </div>
             <div class="status-item @(appState.HasConfiguration ? "complete" : "pending")">
                 <span class="status-icon">@(appState.HasConfiguration ? "✓" : "○")</span>
-                <span>LLM Configuration</span>
+                <span>LLM Configuration (@appState.ConfiguredTablesCount configs)</span>
             </div>
         </div>
+        <p style="font-size: 0.875rem; color: #666;">State loaded: @_stateLoaded, Has Schema: @appState.HasSchema, Has Config: @appState.HasConfiguration</p>
         <a href="" class="btn btn-primary">
             <span>🔗</span> Go to Setup
         </a>
@@ -64,13 +66,19 @@ else
                     {
                         <div class="query-history">
                             <label class="query-history-label">Recent Queries:</label>
-                            <select class="form-control query-history-select" @onchange="SelectHistoryQuery">
-                                <option value="">-- Select a previous query --</option>
+                            <div class="query-history-list">
                                 @foreach (var query in appState.QueryHistory)
                                 {
-                                    <option value="@query">@(query.Length > 80 ? query.Substring(0, 80) + "..." : query)</option>
+                                    <div class="query-history-item">
+                                        <button class="query-history-btn" @onclick="() => SelectHistoryQuery(query)" title="@query">
+                                            @(query.Length > 60 ? query.Substring(0, 60) + "..." : query)
+                                        </button>
+                                        <button class="query-history-delete" @onclick="() => RemoveFromHistory(query)" title="Remove from history">
+                                            ✕
+                                        </button>
+                                    </div>
                                 }
-                            </select>
+                            </div>
                         </div>
                     }
                     
@@ -333,19 +341,67 @@ else
         margin: 0;
     }
     
-    .query-history-select {
+    .query-history-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+        max-height: 200px;
+        overflow-y: auto;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.5rem;
+        padding: 0.5rem;
+        background: #f8fafc;
+    }
+    
+    .query-history-item {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+    
+    .query-history-btn {
+        flex: 1;
+        text-align: left;
         font-size: 0.875rem;
         background: #ffffff;
         border: 1px solid #e2e8f0;
-        border-radius: 0.5rem;
+        border-radius: 0.375rem;
         padding: 0.5rem 0.75rem;
         color: #1e293b;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
     
-    .query-history-select:focus {
-        border-color: #3b82f6;
-        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-        outline: none;
+    .query-history-btn:hover {
+        background: #f1f5f9;
+        border-color: #cbd5e1;
+        transform: translateX(2px);
+    }
+    
+    .query-history-delete {
+        flex-shrink: 0;
+        width: 2rem;
+        height: 2rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.375rem;
+        color: #64748b;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        font-size: 1rem;
+        line-height: 1;
+    }
+    
+    .query-history-delete:hover {
+        background: #fee2e2;
+        border-color: #fecaca;
+        color: #dc2626;
     }
     
     .query-actions {
@@ -577,17 +633,25 @@ else
         .UseSyntaxHighlighting()
         .Build();
 
-    public string NaturalLanguageInput { get; set; } = string.Empty;
+    public string NaturalLanguageInput { get; set; } = "Show me the top 10 selling albums of all time with their sales numbers";
     public string GeneratedSQL { get; set; } = string.Empty;
     public string GeneratedSQLHtml { get; set; } = string.Empty;
     public bool IsGenerating { get; set; } = false;
 
-    private bool IsConfigurationReady => appState.HasSchema && appState.HasConfiguration;
+    private bool _stateLoaded = false;
+
+    private bool IsConfigurationReady => _stateLoaded && appState.HasSchema && appState.HasConfiguration;
 
     protected override void OnInitialized()
     {
         // Load from AppState (setup wizard values)
         LoadFromAppState();
+        
+        // SET BREAKPOINT HERE - Check appState.HasSchema and appState.HasConfiguration values
+        var hasSchema = appState.HasSchema;
+        var hasConfig = appState.HasConfiguration;
+        var tableCount = appState.DatabaseSchema?.Tables.Count ?? 0;
+        var configCount = appState.ConfiguredTablesCount;
     }
 
     private void LoadFromAppState()
@@ -654,7 +718,7 @@ else
         }
     }
 
-    private async Task GenerateSQL(MouseEventArgs args)
+    private async Task GenerateSQL(MouseEventArgs? args = null)
     {
         if (string.IsNullOrWhiteSpace(NaturalLanguageInput))
             return;
@@ -666,8 +730,8 @@ else
         {
             GeneratedSQL = await DataGenerator.GenerateStatementFromNlq(NaturalLanguageInput, databaseSchema, llmConfig);
             
-            // Add query to history
-            appState.AddQueryToHistory(NaturalLanguageInput);
+            // Add query to history and save state
+            await appState.AddQueryToHistoryAsync(NaturalLanguageInput);
             
             // Store in AppState for SQL Results page
             appState.SQLString = GeneratedSQL;
@@ -718,13 +782,41 @@ else
         navigationManager.NavigateTo("/sqlresults");
     }
 
-    private void SelectHistoryQuery(ChangeEventArgs e)
+    private void SelectHistoryQuery(string query)
     {
-        var selectedQuery = e.Value?.ToString();
-        if (!string.IsNullOrEmpty(selectedQuery))
+        if (!string.IsNullOrEmpty(query))
         {
-            NaturalLanguageInput = selectedQuery;
+            NaturalLanguageInput = query;
             StateHasChanged();
         }
+    }
+
+    private async Task RemoveFromHistory(string query)
+    {
+        appState.QueryHistory.Remove(query);
+        await appState.SaveStateAsync();
+        StateHasChanged();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            Console.WriteLine("TestRuntime: OnAfterRenderAsync - first render, loading query history");
+            
+            appState.Initialize(JSRuntime);
+            await appState.LoadStateAsync();
+            
+            Console.WriteLine($"TestRuntime: Query history count after load: {appState.QueryHistory.Count}");
+            
+            _stateLoaded = true;
+            StateHasChanged();
+        }
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        // No need to save on dispose - saves happen when history changes
+        return ValueTask.CompletedTask;
     }
 }

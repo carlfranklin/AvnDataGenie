@@ -126,12 +126,16 @@
 
     private bool HasSqlString => !string.IsNullOrWhiteSpace(appState.SQLString);
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         if (!HasSqlString)
         {
             // No SQL string available, user will be prompted to go back
+            return;
         }
+        
+        // Auto-execute the query on page load
+        await ExecuteQuery();
     }
 
     private async Task ExecuteQuery()

@@ -341,6 +341,12 @@
             }
         }
         
+        // Allow access to Test step if we have schema and configuration loaded (even if not saved)
+        if (step == 4 && appState.HasSchema && appState.HasConfiguration)
+        {
+            classes += " current";
+        }
+        
         return classes;
     }
 
