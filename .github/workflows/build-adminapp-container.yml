@@ -8,7 +8,7 @@ on:
     paths:
       - 'src/AdminApp/**'
       - 'src/AvnDataGenie/**'
-      - 'src/QueryGenerator/**'
+      - 'src/SchemaGenerator/**'
       - 'src/ServiceDefaults/**'
       - '.github/workflows/build-adminapp-container.yml'
   pull_request:
@@ -18,7 +18,7 @@ on:
     paths:
       - 'src/AdminApp/**'
       - 'src/AvnDataGenie/**'
-      - 'src/QueryGenerator/**'
+      - 'src/SchemaGenerator/**'
       - 'src/ServiceDefaults/**'
       - '.github/workflows/build-adminapp-container.yml'
 
