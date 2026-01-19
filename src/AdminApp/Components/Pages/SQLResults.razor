@@ -118,7 +118,7 @@
 </div>
 
 @code {
-    private string connectionString = "Data Source=(localdb)\\MSSQLLocalDB;Initial Catalog=Chinook;Integrated Security=True;Connect Timeout=30;Encrypt=True;Trust Server Certificate=False;Application Intent=ReadWrite;Multi Subnet Failover=False;Command Timeout=30";
+    private string connectionString = string.Empty;
     private DataTable? resultData;
     private string errorMessage = string.Empty;
     private bool isExecuting = false;
@@ -128,6 +128,17 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // Use connection string from AppState if available
+        if (!string.IsNullOrEmpty(appState.ConnectionString))
+        {
+            connectionString = appState.ConnectionString;
+        }
+        else
+        {
+            // Default fallback
+            connectionString = "Data Source=(localdb)\\MSSQLLocalDB;Initial Catalog=Chinook;Integrated Security=True;Connect Timeout=30;Encrypt=True;Trust Server Certificate=False;Application Intent=ReadWrite;Multi Subnet Failover=False;Command Timeout=30";
+        }
+        
         if (!HasSqlString)
         {
             // No SQL string available, user will be prompted to go back

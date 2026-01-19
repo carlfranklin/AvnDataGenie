@@ -349,6 +349,7 @@
 
             appState.SchemaJson = JsonSerializer.Serialize(schema, options);
             appState.DatabaseSchema = schema;
+            appState.ConnectionString = connectionString;  // Save the connection string
             appState.NotifyStateChanged();
 
             // save it
