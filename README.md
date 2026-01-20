@@ -277,7 +277,7 @@ dotnet user-secrets clear
 3. Enter a natural language query in plain English:
    - Example: "Show me the top 10 selling albums of all time with their sales numbers"
    - Example: "Get all customers who placed orders in the last 30 days"
-   - Example: "List employees hired after January 2020"
+   - Example: "List employees hired after January 2003"
 4. Click **Generate SQL**
 5. Review the generated SQL query with syntax highlighting
 6. Use the **Copy** button to copy SQL to clipboard
