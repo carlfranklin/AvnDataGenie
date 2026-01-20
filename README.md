@@ -116,7 +116,7 @@ Configure how the LLM interacts with your database through a comprehensive web i
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/AvnDataGenie.git
+   git clone https://github.com/carlfranklin/AvnDataGenie.git
    cd AvnDataGenie
    ```
 
@@ -382,6 +382,7 @@ Contains LLM interaction rules:
 - [x] Comprehensive code documentation and comments
 - [x] Scoped CSS for all Razor components
 - [ ] Query favorites/bookmarks
+- [ ] Save SQL SELECT results along with queries
 - [ ] Support for additional database types (PostgreSQL, MySQL)
 - [ ] Multi-user support with role-based access
 - [ ] Query templates and saved queries
