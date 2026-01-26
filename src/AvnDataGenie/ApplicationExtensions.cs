@@ -53,6 +53,14 @@ public static class ApplicationExtensions
 				var baseClient = new OllamaApiClient(new Uri(config.LlmEndpoint), config.ModelName);
 				return BuildChatClientWithAdditionalConfiguration(baseClient, serviceProvider);
 			}
+		},
+		{
+			LlmType.GitHubCopilot, (serviceProvider, config) =>
+			{
+				// GitHub Copilot uses its own SDK (CopilotClient) handled directly in Generator class
+				// Return a no-op placeholder since the Generator routes to CopilotClient instead
+				return new PlaceholderChatClient();
+			}
 		}
 	};
 
