@@ -11,6 +11,39 @@ using Microsoft.Extensions.Logging;
 
 namespace AvnDataGenie;
 
+/// <summary>
+/// Placeholder IChatClient for GitHub Copilot which uses CopilotClient directly.
+/// This client should never be invoked.
+/// </summary>
+internal sealed class PlaceholderChatClient : IChatClient
+{
+	public ChatClientMetadata Metadata => new(providerName: "GitHubCopilot", providerUri: null);
+
+	public Task<ChatResponse> GetResponseAsync(
+		IEnumerable<ChatMessage> chatMessages,
+		ChatOptions? options = null,
+		CancellationToken cancellationToken = default)
+	{
+		throw new InvalidOperationException(
+			"GitHub Copilot uses CopilotClient directly in the Generator class. " +
+			"IChatClient should not be invoked when LlmType is GitHubCopilot.");
+	}
+
+	public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
+		IEnumerable<ChatMessage> chatMessages,
+		ChatOptions? options = null,
+		CancellationToken cancellationToken = default)
+	{
+		throw new InvalidOperationException(
+			"GitHub Copilot uses CopilotClient directly in the Generator class. " +
+			"IChatClient should not be invoked when LlmType is GitHubCopilot.");
+	}
+
+	public object? GetService(Type serviceType, object? serviceKey = null) => null;
+
+	public void Dispose() { }
+}
+
 public static class ApplicationExtensions
 {
 	/// <summary>
@@ -52,6 +85,14 @@ public static class ApplicationExtensions
 			{
 				var baseClient = new OllamaApiClient(new Uri(config.LlmEndpoint), config.ModelName);
 				return BuildChatClientWithAdditionalConfiguration(baseClient, serviceProvider);
+			}
+		},
+		{
+			LlmType.GitHubCopilot, (serviceProvider, config) =>
+			{
+				// GitHub Copilot uses its own SDK (CopilotClient) handled directly in Generator class
+				// Return a no-op placeholder since the Generator routes to CopilotClient instead
+				return new PlaceholderChatClient();
 			}
 		}
 	};

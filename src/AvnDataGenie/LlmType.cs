@@ -7,5 +7,6 @@ public enum LlmType
 		{
 			Ollama,
 			OpenAI,
-			AzureOpenAI
+			AzureOpenAI,
+			GitHubCopilot
 		}

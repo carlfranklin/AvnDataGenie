@@ -3,6 +3,7 @@ using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using OllamaSharp;
+using GitHub.Copilot.SDK;
 using ChatRole = Microsoft.Extensions.AI.ChatRole;
 
 namespace AvnDataGenie;
@@ -11,6 +12,7 @@ namespace AvnDataGenie;
 /// Natural Language Query (NLQ) to SQL generator powered by Large Language Models.
 /// Translates user questions in plain English into executable T-SQL queries
 /// using schema metadata and business rules to guide the LLM.
+/// Supports multiple LLM backends including Ollama, OpenAI, Azure OpenAI, and GitHub Copilot.
 /// </summary>
 /// <param name="config">Configuration options for LLM settings (model, timeout, tokens)</param>
 /// <param name="chatClient">Microsoft.Extensions.AI chat client for LLM interaction</param>
@@ -18,6 +20,8 @@ namespace AvnDataGenie;
 public class Generator(IOptions<Configuration> config, IChatClient chatClient, ILogger<Generator> logger)
 {
 	private readonly Configuration _config = config.Value;
+	private CopilotClient? _copilotClient;
+	private CopilotSession? _copilotSession;
 
 	/// <summary>
 	/// Cached system prompt containing database schema and business rules.
@@ -27,6 +31,7 @@ public class Generator(IOptions<Configuration> config, IChatClient chatClient, I
 
 	/// <summary>
 	/// Generates a T-SQL SELECT statement from a natural language query.
+	/// Automatically routes to GitHub Copilot SDK or IChatClient based on configured LlmType.
 	/// Combines schema metadata and business rules to create a constrained prompt
 	/// that guides the LLM to produce valid, executable SQL.
 	/// </summary>
@@ -37,6 +42,22 @@ public class Generator(IOptions<Configuration> config, IChatClient chatClient, I
 	/// <exception cref="OperationCanceledException">Thrown when LLM request times out</exception>
 	/// <exception cref="Exception">Thrown when LLM service is unavailable or returns an error</exception>
 	public async Task<string> GenerateStatementFromNlq(string naturalLanguageQuery, string jsonSchema, string llmMetadata)
+	{
+		// Route to appropriate LLM backend based on configuration
+		if (_config.LlmType == LlmType.GitHubCopilot)
+		{
+			return await GenerateWithCopilotAsync(naturalLanguageQuery, jsonSchema, llmMetadata);
+		}
+		else
+		{
+			return await GenerateWithChatClientAsync(naturalLanguageQuery, jsonSchema, llmMetadata);
+		}
+	}
+
+	/// <summary>
+	/// Internal method to generate SQL using IChatClient (Ollama, OpenAI, Azure OpenAI).
+	/// </summary>
+	private async Task<string> GenerateWithChatClientAsync(string naturalLanguageQuery, string jsonSchema, string llmMetadata)
 	{
 		// Generate the system prompt if not already cached
 		// System prompt contains schema + rules and is expensive to build, so we cache it
@@ -85,6 +106,154 @@ public class Generator(IOptions<Configuration> config, IChatClient chatClient, I
 
 		// Clean and normalize the LLM response
 		var sqlStatement = response.Text.Trim();
+		
+		return CleanAndFormatSql(sqlStatement);
+	}
+
+	/// <summary>
+	/// Internal method to generate SQL using GitHub Copilot SDK.
+	/// </summary>
+	private async Task<string> GenerateWithCopilotAsync(string naturalLanguageQuery, string jsonSchema, string llmMetadata)
+	{
+		// Initialize Copilot client if not already created
+		if (_copilotClient == null)
+		{
+			var clientOptions = new CopilotClientOptions
+			{
+				AutoStart = true,
+				AutoRestart = true
+			};
+
+			_copilotClient = new CopilotClient(clientOptions);
+			await _copilotClient.StartAsync();
+
+			logger.LogInformation("GitHub Copilot client initialized and started.");
+		}
+
+		// Generate the system prompt if not already cached
+		if (string.IsNullOrWhiteSpace(SYSTEMPROMPT))
+		{
+			SYSTEMPROMPT = SqlPromptBuilder.CreateSystemPromptFromJson(jsonSchema, llmMetadata);
+			logger.LogInformation("System prompt generated and cached.");
+			logger.LogDebug("System Prompt: {SystemPrompt}", SYSTEMPROMPT);
+		}
+
+		// Create or reuse session
+		if (_copilotSession == null)
+		{
+			var sessionConfig = new SessionConfig
+			{
+				Model = _config.ModelName, // e.g., "gpt-5", "claude-sonnet-4.5"
+				SystemMessage = new SystemMessageConfig
+				{
+					Mode = SystemMessageMode.Append,
+					Content = SYSTEMPROMPT
+				}
+			};
+
+			_copilotSession = await _copilotClient.CreateSessionAsync(sessionConfig);
+			logger.LogInformation("Copilot session created with model: {Model}", _config.ModelName);
+		}
+
+		// Combine user query with hints
+		var combinedPrompt = $"""
+			{(string.IsNullOrWhiteSpace(llmMetadata) ? "" : $"HINTS:\n{llmMetadata}\n")}
+
+			QUERY: {naturalLanguageQuery}
+
+			Return only T-SQL starting with SELECT.
+			""";
+
+		// Set up completion tracking
+		var responseBuilder = new System.Text.StringBuilder();
+		var completionSource = new TaskCompletionSource<string>();
+		var hasError = false;
+
+		// Subscribe to session events
+		var subscription = _copilotSession.On(evt =>
+		{
+			try
+			{
+				switch (evt)
+				{
+					case AssistantMessageEvent msg:
+						// Non-streaming: complete message received
+
+						responseBuilder.Append(msg.Data.Content);
+						logger.LogDebug("Received complete message from Copilot.");
+					
+					break;
+
+					case AssistantMessageDeltaEvent delta:
+						// Streaming: incremental chunks
+						responseBuilder.Append(delta.Data.DeltaContent);
+						break;
+
+					case SessionIdleEvent:
+						// Session finished processing
+						completionSource.TrySetResult(responseBuilder.ToString());
+						logger.LogDebug("Copilot session is idle, query complete.");
+						break;
+
+					case SessionErrorEvent err:
+						logger.LogError("Copilot session error: {Error}", err.Data.Message);
+						hasError = true;
+						completionSource.TrySetException(new Exception($"Copilot error: {err.Data.Message}"));
+						break;
+
+					case ToolExecutionStartEvent toolStart:
+						logger.LogDebug("Copilot tool execution started: {ToolId}", toolStart.Data.ToolCallId);
+						break;
+
+					case ToolExecutionCompleteEvent toolComplete:
+						logger.LogDebug("Copilot tool execution completed: {ToolId}", toolComplete.Data.ToolCallId);
+						break;
+				}
+			}
+			catch (Exception ex)
+			{
+				logger.LogError(ex, "Error processing Copilot event");
+				completionSource.TrySetException(ex);
+			}
+		});
+
+		try
+		{
+			// Send the message
+			await _copilotSession.SendAsync(new MessageOptions 
+			{ 
+				Prompt = combinedPrompt 
+			});
+
+			// Wait for completion with timeout
+			using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(_config.RequestTimeoutSeconds));
+			cts.Token.Register(() => completionSource.TrySetCanceled());
+
+			var sqlStatement = await completionSource.Task;
+
+			if (hasError)
+			{
+				throw new Exception("Copilot returned an error during query generation.");
+			}
+
+			return CleanAndFormatSql(sqlStatement);
+		}
+		finally
+		{
+			// Clean up subscription
+			subscription?.Dispose();
+		}
+	}
+
+	/// <summary>
+	/// Cleans and formats raw SQL output from any LLM.
+	/// Extracts SQL from markdown blocks, removes comments and preambles, and formats for readability.
+	/// </summary>
+	/// <param name="sqlStatement">Raw SQL string from LLM</param>
+	/// <returns>Clean, formatted T-SQL statement</returns>
+	private static string CleanAndFormatSql(string sqlStatement)
+	{
+		sqlStatement = sqlStatement.Trim();
 		
 		// Extract SQL from markdown code blocks if LLM wrapped it in ```sql ... ```
 		var sqlMatch = System.Text.RegularExpressions.Regex.Match(
@@ -246,6 +415,27 @@ public class Generator(IOptions<Configuration> config, IChatClient chatClient, I
 		}
 
 		return result.ToString();
+	}
+
+	/// <summary>
+	/// Disposes of Copilot resources when the Generator is disposed.
+	/// Should be called when the application shuts down or when switching LLM providers.
+	/// </summary>
+	public async ValueTask DisposeAsync()
+	{
+		if (_copilotSession != null)
+		{
+			await _copilotSession.DisposeAsync();
+			_copilotSession = null;
+			logger.LogInformation("Copilot session disposed.");
+		}
+
+		if (_copilotClient != null)
+		{
+			await _copilotClient.StopAsync();
+			_copilotClient = null;
+			logger.LogInformation("Copilot client stopped.");
+		}
 	}
 
 

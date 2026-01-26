@@ -1,4 +1,8 @@
+using System.Diagnostics.Eventing.Reader;
+
 var builder = DistributedApplication.CreateBuilder(args);
+
+bool useCopilotCLI = true;
 
 // var ollama = builder.AddOllama("ollama")
 // //	.WithGPUSupport()
@@ -9,8 +13,14 @@ var builder = DistributedApplication.CreateBuilder(args);
 
 var adminApp = builder.AddProject<Projects.AdminApp>("admin")
 	.WithExternalHttpEndpoints();
-	
-if (!string.IsNullOrEmpty(builder.Configuration["AvnDataGenie:LlmEndpoint"]))
+
+if (useCopilotCLI)
+{
+	adminApp
+		.WithEnvironment("AvnDataGenie__LlmType", "GitHubCopilot")
+		.WithEnvironment("AvnDataGenie__ModelName", "gpt-5 mini");	
+}
+else if (!string.IsNullOrEmpty(builder.Configuration["AvnDataGenie:LlmEndpoint"]))
 {
 
 	// Read Azure OpenAI configuration from UserSecrets
