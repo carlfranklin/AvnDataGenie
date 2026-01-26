@@ -190,14 +190,51 @@ dotnet user-secrets set "AvnDataGenie:ModelName" "qwen2.5-coder:1.5b"
 - `qwen2.5-coder:7b` - Better accuracy, requires more resources
 - `codellama:7b` - Alternative option for SQL generation
 
+#### GitHub Copilot CLI
+**Use GitHub's advanced models through the Copilot CLI.** Requires an active GitHub Copilot subscription and the GitHub Copilot CLI installed.
+
+1. Install GitHub Copilot CLI following the instructions at [github.com/github/copilot-cli](https://github.com/github/copilot-cli)
+2. Authenticate: `gh auth login` (if not already authenticated)
+3. Verify CLI is available: `copilot --version`
+4. Configure AvnDataGenie:
+
+```bash
+cd src/AppHost
+dotnet user-secrets set "AvnDataGenie:LlmType" "GitHubCopilot"
+dotnet user-secrets set "AvnDataGenie:ModelName" "gpt-5"
+dotnet user-secrets set "AvnDataGenie:LlmApiKey" ""
+dotnet user-secrets set "AvnDataGenie:LlmEndpoint" ""
+```
+
+**Optional Copilot Settings:**
+```bash
+# Custom path to Copilot CLI executable (if not in PATH)
+dotnet user-secrets set "AvnDataGenie:CopilotCliPath" "/path/to/copilot"
+
+# Enable streaming responses for faster feedback
+dotnet user-secrets set "AvnDataGenie:CopilotStreaming" "true"
+```
+
+**Available Copilot Models:**
+- `gpt-5` - Latest and most capable model
+- `claude-sonnet-4.5` - Anthropic's Claude model
+- Other models supported by GitHub Copilot
+
+**Benefits:**
+- Access to latest GitHub Copilot models including GPT-5
+- Session-based conversation for context retention
+- No need to manage API keys separately
+- Automatic authentication through GitHub
+
 ### Configuration Parameters
 
 | Secret Key | Description | Example Values |
 |------------|-------------|----------------|
-| `AvnDataGenie:LlmEndpoint` | The base URL for your LLM provider | `https://api.openai.com/v1`<br>`http://localhost:11434` |
-| `AvnDataGenie:LlmApiKey` | Your API key (empty for Ollama) | `sk-...` (OpenAI)<br>`""` (Ollama) |
-| `AvnDataGenie:LlmType` | The LLM provider type | `OpenAI`, `AzureOpenAI`, `Ollama` |
-| `AvnDataGenie:ModelName` | The specific model to use | `gpt-4`, `gpt-3.5-turbo`, `qwen2.5-coder:1.5b` |
+| `AvnDataGenie:LlmEndpoint` | The base URL for your LLM provider | `https://api.openai.com/v1`<br>`http://localhost:11434`<br>`""` (Copilot) |
+| `AvnDataGenie:LlmApiKey` | Your API key (empty for Ollama/Copilot) | `sk-...` (OpenAI)<br>`""` (Ollama/Copilot) |
+| `AvnDataGenie:LlmType` | The LLM provider type | `OpenAI`, `AzureOpenAI`, `Ollama`, `GitHubCopilot` |
+| `AvnDataGenie:ModelName` | The specific model to use | `gpt-4`, `gpt-3.5-turbo`, `qwen2.5-coder:1.5b`, `gpt-5` |
+
 
 ### Viewing Your Secrets
 

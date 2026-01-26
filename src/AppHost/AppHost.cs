@@ -20,7 +20,7 @@ if (useCopilotCLI)
 		.WithEnvironment("AvnDataGenie__LlmType", "GitHubCopilot")
 		.WithEnvironment("AvnDataGenie__ModelName", "gpt-5 mini");	
 }
-else if (!string.IsNullOrEmpty(builder.Configuration["AvnDataGenie:LlmEndpoint"]))
+else if (!string.IsNullOrEmpty(builder.Configuration["AvnDataGenie:LlmEndpoint"]) || builder.Configuration["AvnDataGenie:LlmType"] == "GitHubCopilot")
 {
 
 	// Read Azure OpenAI configuration from UserSecrets
