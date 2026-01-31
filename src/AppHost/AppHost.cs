@@ -2,7 +2,7 @@ using System.Diagnostics.Eventing.Reader;
 
 var builder = DistributedApplication.CreateBuilder(args);
 
-bool useCopilotCLI = true;
+bool useCopilotCLI = false;
 
 // var ollama = builder.AddOllama("ollama")
 // //	.WithGPUSupport()

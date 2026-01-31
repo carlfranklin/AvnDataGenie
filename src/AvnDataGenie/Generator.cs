@@ -79,7 +79,8 @@ public partial class Generator(IOptions<Configuration> config, IChatClient chatC
 
 			QUERY: {naturalLanguageQuery}
 
-			Return only T-SQL starting with SELECT.
+			Return only T-SQL starting with SELECT. PLACE TOP statement immediately after SELECT.
+			Ensure SQL is syntactically correct for Microsoft SQL Server.
 			""";
 
 		// Create chat messages: system prompt + user query
