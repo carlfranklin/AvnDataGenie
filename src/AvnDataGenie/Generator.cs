@@ -53,8 +53,14 @@ public partial class Generator(IOptions<Configuration> config, IChatClient chatC
 	}
 
 	/// <summary>
-	/// Internal method to generate SQL using IChatClient (Ollama, OpenAI, Azure OpenAI).
+	/// Generates SQL using an IChatClient implementation (Ollama, OpenAI, or Azure OpenAI).
+	/// Builds a two-message conversation (system + user) with cached system prompt
+	/// and applies timeout/token/temperature constraints.
 	/// </summary>
+	/// <param name="naturalLanguageQuery">User's question in plain English</param>
+	/// <param name="jsonSchema">JSON string containing database schema</param>
+	/// <param name="llmMetadata">JSON string containing business rules and metadata</param>
+	/// <returns>Cleaned and formatted T-SQL SELECT statement</returns>
 	private async Task<string> GenerateWithChatClientAsync(string naturalLanguageQuery, string jsonSchema, string llmMetadata)
 	{
 		// Generate the system prompt if not already cached
@@ -115,7 +121,7 @@ public partial class Generator(IOptions<Configuration> config, IChatClient chatC
 	/// </summary>
 	/// <param name="sqlStatement">Raw SQL string from LLM</param>
 	/// <returns>Clean, formatted T-SQL statement</returns>
-	private static string CleanAndFormatSql(string sqlStatement)
+	internal static string CleanAndFormatSql(string sqlStatement)
 	{
 		sqlStatement = sqlStatement.Trim();
 		
@@ -173,7 +179,7 @@ public partial class Generator(IOptions<Configuration> config, IChatClient chatC
 	/// </summary>
 	/// <param name="sql">Raw SQL string (potentially on one line)</param>
 	/// <returns>Formatted SQL with newlines and indentation</returns>
-	private static string FormatSql(string sql)
+	internal static string FormatSql(string sql)
 	{
 		if (string.IsNullOrWhiteSpace(sql))
 			return sql;
@@ -237,7 +243,7 @@ public partial class Generator(IOptions<Configuration> config, IChatClient chatC
 	/// </summary>
 	/// <param name="sql">SQL string to format</param>
 	/// <returns>SQL with properly formatted SELECT column list</returns>
-	private static string FormatSelectColumns(string sql)
+	internal static string FormatSelectColumns(string sql)
 	{
 		var result = new System.Text.StringBuilder();
 		int parenDepth = 0;

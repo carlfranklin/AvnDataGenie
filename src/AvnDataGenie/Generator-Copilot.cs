@@ -4,15 +4,29 @@ using Microsoft.Extensions.Logging;
 
 namespace AvnDataGenie;
 
+/// <summary>
+/// Partial class extending Generator with GitHub Copilot SDK integration.
+/// Manages CopilotClient lifecycle and session-based message exchange.
+/// </summary>
 public partial class Generator
 {
 
+	/// <summary>Copilot SDK client instance; lazily initialized on first Copilot request.</summary>
 	private CopilotClient? _copilotClient;
+	/// <summary>Active Copilot session holding system prompt context and conversation state.</summary>
 	private CopilotSession? _copilotSession;
 	
 	/// <summary>
-	/// Internal method to generate SQL using GitHub Copilot SDK.
+	/// Generates SQL using the GitHub Copilot SDK's session-based event-driven model.
+	/// Unlike IChatClient providers, Copilot uses streaming events (message deltas,
+	/// idle signals, errors) to deliver results asynchronously.
 	/// </summary>
+	/// <param name="naturalLanguageQuery">User's question in plain English</param>
+	/// <param name="jsonSchema">JSON string containing database schema</param>
+	/// <param name="llmMetadata">JSON string containing business rules and metadata</param>
+	/// <returns>Cleaned and formatted T-SQL SELECT statement</returns>
+	/// <exception cref="Exception">Thrown when Copilot session returns an error event</exception>
+	/// <exception cref="OperationCanceledException">Thrown when request exceeds configured timeout</exception>
 	private async Task<string> GenerateWithCopilotAsync(string naturalLanguageQuery, string jsonSchema, string llmMetadata)
 	{
 		// Initialize Copilot client if not already created
@@ -38,7 +52,8 @@ public partial class Generator
 			logger.LogDebug("System Prompt: {SystemPrompt}", SYSTEMPROMPT);
 		}
 
-		// Create or reuse session
+		// Create or reuse Copilot session — sessions persist system prompt context
+		// across multiple queries for efficiency
 		if (_copilotSession == null)
 		{
 			var sessionConfig = new SessionConfig
@@ -69,7 +84,8 @@ public partial class Generator
 		var completionSource = new TaskCompletionSource<string>();
 		var hasError = false;
 
-		// Subscribe to session events
+		// Subscribe to Copilot session events using reactive pattern.
+		// Events arrive asynchronously — we accumulate content and signal completion via TaskCompletionSource.
 		using var subscription = _copilotSession.On(evt =>
 		{
 			try
@@ -77,20 +93,19 @@ public partial class Generator
 				switch (evt)
 				{
 					case AssistantMessageEvent msg:
-						// Non-streaming: complete message received
-
+						// Non-streaming path: full response delivered in a single event
 						responseBuilder.Append(msg.Data.Content);
 						logger.LogDebug("Received complete message from Copilot.");
 					
 					break;
 
 					case AssistantMessageDeltaEvent delta:
-						// Streaming: incremental chunks
+						// Streaming path: response arrives in incremental chunks
 						responseBuilder.Append(delta.Data.DeltaContent);
 						break;
 
 					case SessionIdleEvent:
-						// Session finished processing
+						// Idle signal indicates the model has finished generating — resolve the task
 						completionSource.TrySetResult(responseBuilder.ToString());
 						logger.LogDebug("Copilot session is idle, query complete.");
 						break;

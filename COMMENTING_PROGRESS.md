@@ -1,7 +1,7 @@
 # Code Documentation Script
 # This script tracks which files have been commented and which remain
 
-## COMPLETED ✅ (10/29 files - 34%)
+## COMPLETED ✅ (16/29 files - 55%)
 
 ### Core State Management
 1. ✅ AdminApp\AppState.cs - FULLY COMMENTED
@@ -17,17 +17,17 @@
 9. ✅ QueryGenerator\Models\LlmConfiguration.cs (+ all nested classes)
 10. ✅ DOCUMENTATION.md created
 
-## REMAINING FILES TO COMMENT (19 files)
+### QueryGenerator Core (COMPLETE)
+11. ✅ QueryGenerator\Generator.cs - Database schema extraction logic
 
-### QueryGenerator Core (Priority: HIGH - 1 file)
-- [ ] QueryGenerator\Generator.cs - Database schema extraction logic
+### AvnDataGenie Core (ALL COMPLETE)
+12. ✅ AvnDataGenie\Generator.cs - Main NLQ to SQL generator (+ Generator-Copilot.cs partial)
+13. ✅ AvnDataGenie\SqlPromptBuilder.cs - LLM prompt construction
+14. ✅ AvnDataGenie\Configuration.cs - Runtime configuration
+15. ✅ AvnDataGenie\LlmType.cs - LLM provider enumeration
+16. ✅ AvnDataGenie\ApplicationExtensions.cs - DI extensions
 
-### AvnDataGenie Core (Priority: HIGH - 5 files)
-- [ ] AvnDataGenie\Generator.cs - Main NLQ to SQL generator
-- [ ] AvnDataGenie\SqlPromptBuilder.cs - LLM prompt construction
-- [ ] AvnDataGenie\Configuration.cs - Runtime configuration
-- [ ] AvnDataGenie\LlmType.cs - LLM provider enumeration  
-- [ ] AvnDataGenie\ApplicationExtensions.cs - DI extensions
+## REMAINING FILES TO COMMENT (13 files)
 
 ### AdminApp Pages (Priority: MEDIUM - 6 files)
 - [ ] AdminApp\Components\Pages\Home.razor - Schema generation page
@@ -125,11 +125,11 @@ if (!IsConfigurationReady)
 ## PROGRESS TRACKING
 
 Total Files: 29
-Completed: 10
-Remaining: 19  
-Progress: 34%
+Completed: 16
+Remaining: 13  
+Progress: 55%
 
-Last Updated: 2026-01-19 18:00 UTC
+Last Updated: 2026-02-16 19:00 UTC
 
 ## WHAT'S BEEN DOCUMENTED
 

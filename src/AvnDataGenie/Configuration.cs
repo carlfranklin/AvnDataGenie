@@ -16,6 +16,10 @@ public class Configuration
 		/// </summary>
 		public required string LlmApiKey {get; set;} = string.Empty;
 
+		/// <summary>
+		/// The type of LLM provider to use (Ollama, OpenAI, AzureOpenAI, or GitHubCopilot).
+		/// Determines which client SDK and authentication method is used.
+		/// </summary>
 		public required LlmType LlmType {get; set;}
 
 		/// <summary>

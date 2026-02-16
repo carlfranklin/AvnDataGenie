@@ -11,11 +11,20 @@ using Microsoft.Extensions.Logging;
 
 namespace AvnDataGenie;
 
+/// <summary>
+/// Dependency injection extension methods for registering AvnDataGenie services.
+/// Handles LLM client creation, configuration binding, and service registration
+/// for the NLQ-to-SQL generation pipeline.
+/// </summary>
 public static class ApplicationExtensions
 {
 	/// <summary>
-	/// Builds a chat client with conditional distributed caching if available
+	/// Wraps a base chat client with distributed caching middleware when available.
+	/// Caching reduces redundant LLM calls for identical prompts.
 	/// </summary>
+	/// <param name="baseClient">The provider-specific chat client to wrap</param>
+	/// <param name="serviceProvider">Service provider to resolve optional IDistributedCache</param>
+	/// <returns>Chat client with caching pipeline applied (if cache is registered)</returns>
 	private static IChatClient BuildChatClientWithAdditionalConfiguration(IChatClient baseClient, IServiceProvider serviceProvider)
 	{
 		var builder = new ChatClientBuilder(baseClient);
@@ -29,6 +38,10 @@ public static class ApplicationExtensions
 		return builder.Build(serviceProvider);
 	}
 
+	/// <summary>
+	/// Factory lookup mapping each <see cref="LlmType"/> to its IChatClient constructor.
+	/// Each factory creates a provider-specific client wrapped with caching middleware.
+	/// </summary>
 	private static readonly Dictionary<LlmType, Func<IServiceProvider, Configuration, IChatClient>> ChatClientFactories = new()
 	{
 		{

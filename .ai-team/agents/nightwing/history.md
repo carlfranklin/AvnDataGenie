@@ -9,6 +9,10 @@
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+- **2026-02-16:** Most HIGH-priority files already had substantial XML docs when inspected — previous work (likely by Oracle/another agent) documented Generator.cs, SqlPromptBuilder.cs, and SchemaGenerator/Generator.cs extensively. Gaps were surgical: missing param docs, missing class-level docs on static classes, missing enum member docs, and missing docs on the Generator-Copilot.cs partial class.
+- **2026-02-16:** Pre-existing NuGet NU1605 error in AvnDataGenie.csproj — `Microsoft.Extensions.Caching.Memory 9.0.0` transitively pulls `Microsoft.Extensions.DependencyInjection.Abstractions 10.0.2` but project directly references `9.0.6`. This blocks full-solution build. Not related to documentation work.
+- **2026-02-16:** Generator is a partial class split across `Generator.cs` (IChatClient path) and `Generator-Copilot.cs` (CopilotClient path). Both share `CleanAndFormatSql` and `SYSTEMPROMPT` cache. Any future refactoring must account for both files.
+
 ## Cross-Agent Updates
 
 📌 **Team update (2026-02-16):** Roadmap priority established: documentation-first, then CSV export and favorites as quick wins. Multi-DB and RBAC deferred pending foundation work. — decided by Oracle
