@@ -1,0 +1,32 @@
+{
+  "agents": {
+    "oracle": {
+      "persistent_name": "Oracle",
+      "universe": "DC Universe",
+      "created_at": "2026-02-16T19:18:00Z",
+      "legacy_named": false,
+      "status": "active"
+    },
+    "batgirl": {
+      "persistent_name": "Batgirl",
+      "universe": "DC Universe",
+      "created_at": "2026-02-16T19:18:00Z",
+      "legacy_named": false,
+      "status": "active"
+    },
+    "nightwing": {
+      "persistent_name": "Nightwing",
+      "universe": "DC Universe",
+      "created_at": "2026-02-16T19:18:00Z",
+      "legacy_named": false,
+      "status": "active"
+    },
+    "huntress": {
+      "persistent_name": "Huntress",
+      "universe": "DC Universe",
+      "created_at": "2026-02-16T19:18:00Z",
+      "legacy_named": false,
+      "status": "active"
+    }
+  }
+}
