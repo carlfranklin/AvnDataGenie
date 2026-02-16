@@ -16,6 +16,8 @@
 | Batgirl | Frontend Dev | `.ai-team/agents/batgirl/charter.md` | ✅ Active |
 | Nightwing | Backend Dev | `.ai-team/agents/nightwing/charter.md` | ✅ Active |
 | Huntress | Tester | `.ai-team/agents/huntress/charter.md` | ✅ Active |
+| Lucius | DevOps Engineer | `.ai-team/agents/lucius/charter.md` | ✅ Active |
+| Cyborg | Database & Performance Engineer | `.ai-team/agents/cyborg/charter.md` | ✅ Active |
 | Scribe | Session Logger | `.ai-team/agents/scribe/charter.md` | 📋 Silent |
 | Ralph | Work Monitor | — | 🔄 Monitor |
 

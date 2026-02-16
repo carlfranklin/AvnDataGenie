@@ -16,3 +16,5 @@
 ## Cross-Agent Updates
 
 📌 **Team update (2026-02-16):** Roadmap priority established: documentation-first, then CSV export and favorites as quick wins. Multi-DB and RBAC deferred pending foundation work. — decided by Oracle
+
+📌 **Team update (2026-02-16):** NuGet dependency conflict resolved by Huntress. Update: `Microsoft.Extensions.DependencyInjection.Abstractions` is now 10.0.2 in AvnDataGenie.csproj. Builds are unblocked. Test infrastructure (64 tests) is live and all passing. — decided by Huntress

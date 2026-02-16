@@ -10,6 +10,8 @@ How to decide who handles what.
 | Backend services, C# logic, LLM integration, schema generation | Nightwing | Generator.cs, SqlPromptBuilder.cs, API services, Aspire config |
 | Architecture, scope, priorities, code review | Oracle | What to build next, trade-offs, decisions, PR reviews |
 | Testing, quality, edge cases | Huntress | Write tests, find edge cases, verify fixes |
+| GitHub Actions, CI/CD, build pipelines | Lucius | Workflows, PR checks, release automation |
+| Database performance, SQL tuning, schema optimization | Cyborg | Query optimization, connection pooling, provider abstraction |
 | Async issue work (bugs, tests, small features) | @copilot 🤖 | Well-defined tasks matching capability profile |
 | Session logging | Scribe | Automatic — never needs routing |
 
