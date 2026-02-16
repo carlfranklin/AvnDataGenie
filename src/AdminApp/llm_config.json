@@ -5,33 +5,8 @@
       "tableName": "Album",
       "friendlyName": null,
       "description": null,
-      "aliases": "record, recording",
-      "columnConfigurations": [
-        {
-          "columnName": "AlbumId",
-          "friendlyName": null,
-          "description": null,
-          "aliases": null,
-          "isPii": false,
-          "isRestricted": false
-        },
-        {
-          "columnName": "Title",
-          "friendlyName": null,
-          "description": null,
-          "aliases": "name",
-          "isPii": false,
-          "isRestricted": false
-        },
-        {
-          "columnName": "ArtistId",
-          "friendlyName": null,
-          "description": null,
-          "aliases": null,
-          "isPii": false,
-          "isRestricted": false
-        }
-      ]
+      "aliases": null,
+      "columnConfigurations": []
     },
     {
       "schemaName": "dbo",
